@@ -24,8 +24,6 @@ run:
       value: "false"
     - name: MOCK_AI
       value: "false"
-    - name: ENABLE_JOBS
-      value: "false"
     - name: PRISMA_EAGER_CONNECT
       value: "false"
     - name: AUDIT_LOG
@@ -56,11 +54,9 @@ run:
 
   secrets:
     - name: DATABASE_URL
-      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/DATABASE_URL
-    - name: REDIS_URL
-      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/REDIS_URL
+      value-from: arn:aws:secretsmanager:us-east-1:616919332387:secret:aerogeniot/DATABASE_URL-fHamEP
     - name: JWT_SECRET
-      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/JWT_SECRET
+      value-from: arn:aws:secretsmanager:us-east-1:616919332387:secret:aerogeniot/JWT_SECRET-4YGaNM
     - name: INGEST_API_KEY
-      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/INGEST_API_KEY
+      value-from: arn:aws:secretsmanager:us-east-1:616919332387:secret:aerogeniot/INGEST_API_KEY-ZIDyXD
 

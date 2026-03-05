@@ -10,7 +10,6 @@ import { RecommendationsModule } from "./modules/recommendations/recommendations
 import { AlertsModule } from "./modules/alerts/alerts.module";
 import { ThresholdsModule } from "./modules/thresholds/thresholds.module";
 import { SystemModule } from "./modules/system/system.module";
-import { JobsModule } from "./modules/jobs/jobs.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { RealtimeModule } from "./modules/realtime/realtime.module";
@@ -42,7 +41,6 @@ import { AuditInterceptor } from "./modules/common/audit.interceptor";
     AlertsModule,
     ThresholdsModule,
     SystemModule,
-    JobsModule.register(),
     NotificationsModule,
     RealtimeModule,
     AiModule,

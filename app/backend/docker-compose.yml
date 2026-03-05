@@ -11,12 +11,6 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  redis:
-    image: redis:7
-    container_name: AeroGenIoT-redis
-    ports:
-      - "${REDIS_PORT:-6381}:6379"
-
   minio:
     image: minio/minio:latest
     container_name: AeroGenIoT-minio
