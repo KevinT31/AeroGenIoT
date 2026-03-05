@@ -18,6 +18,25 @@ const alertMeta: Record<string, { icon: string; level: "ok" | "warn" | "stop"; t
   battery_low: { icon: "battery-alert", level: "warn", title: "Bateria baja" },
 };
 
+const actionByAlertType: Record<string, { icon: string; text: string }> = {
+  wind_danger: {
+    icon: "pause-circle-outline",
+    text: "Mantener el sistema detenido hasta que el viento vuelva a rango seguro.",
+  },
+  generator_temp_high: {
+    icon: "thermometer-low",
+    text: "Esperar enfriamiento del generador antes de reanudar operacion.",
+  },
+  vibration_high: {
+    icon: "wrench-outline",
+    text: "Programar revision de aspas y soportes en la siguiente visita tecnica.",
+  },
+  battery_low: {
+    icon: "battery-charging-low",
+    text: "Reducir consumo cerca de 10% y priorizar cargas esenciales.",
+  },
+};
+
 export const AlertsScreen = () => {
   const { alerts, ackedAlerts, markAlertReceived } = useAero();
   const tabBarHeight = useBottomTabBarHeight();
@@ -34,12 +53,19 @@ export const AlertsScreen = () => {
     <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
       <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}>
         <LinearGradient colors={["#0EA5E9", "#38BDF8"]} style={styles.hero}>
+          <View style={styles.heroIconWrap}>
+            <MaterialCommunityIcons name="bell-alert" size={24} color="#FFFFFF" />
+          </View>
           <Text style={styles.heroTitle}>Alertas del sistema</Text>
-          <Text style={styles.heroSub}>Eventos importantes en tiempo real para la parcela.</Text>
+          <Text style={styles.heroSub}>Mensajes importantes para decidir acciones rapidas en campo.</Text>
         </LinearGradient>
 
         {!sorted.length ? (
-          <Panel title="Sin alertas recientes" subtitle="Estado estable">
+          <Panel
+            title="Sin alertas recientes"
+            subtitle="Estado estable"
+            rightSlot={<MaterialCommunityIcons name="check-decagram-outline" size={24} color={palette.good} />}
+          >
             <Text style={styles.emptyText}>No se detectaron alertas para este dispositivo en los ultimos minutos.</Text>
           </Panel>
         ) : null}
@@ -49,6 +75,10 @@ export const AlertsScreen = () => {
             icon: "alert-circle-outline",
             level: "warn" as const,
             title: "Evento del sistema",
+          };
+          const action = actionByAlertType[alert.type] || {
+            icon: "information-outline",
+            text: "Revisar la condicion y avisar a soporte si persiste.",
           };
           const received = ackedAlerts[alert.id] || alert.status !== "open";
 
@@ -62,7 +92,12 @@ export const AlertsScreen = () => {
               <Text style={styles.message}>{alert.message}</Text>
               <View style={styles.metaRow}>
                 <StatusTag level={meta.level} text={received ? "Recibido" : "Pendiente"} />
-                <Text style={styles.smallText}>ID: {alert.id.slice(0, 8)}</Text>
+                <Text style={styles.smallText}>{timeAgo(alert.createdAt)}</Text>
+              </View>
+
+              <View style={styles.actionNote}>
+                <MaterialCommunityIcons name={action.icon as any} size={16} color={palette.textSoft} />
+                <Text style={styles.actionText}>{action.text}</Text>
               </View>
 
               <View style={styles.actions}>
@@ -99,41 +134,76 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: "#77D6FF",
+    alignItems: "center",
+    gap: 6,
+    shadowColor: "#0E7EA8",
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+  },
+  heroIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.22)",
   },
   heroTitle: {
     color: "#FFFFFF",
     fontFamily: fonts.title,
     fontSize: 22,
+    textAlign: "center",
   },
   heroSub: {
-    marginTop: 4,
     color: "#EAF8FF",
     fontFamily: fonts.body,
+    textAlign: "center",
   },
   emptyText: {
     color: palette.textSoft,
     fontFamily: fonts.body,
+    textAlign: "center",
   },
   message: {
     color: palette.text,
     fontFamily: fonts.bodySemi,
     lineHeight: 22,
+    textAlign: "center",
   },
   smallText: {
     color: palette.textSoft,
     fontFamily: fonts.body,
     fontSize: 12,
+    textAlign: "center",
   },
   metaRow: {
     marginTop: spacing.sm,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 8,
     alignItems: "center",
+  },
+  actionNote: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 6,
+    width: "100%",
+  },
+  actionText: {
+    color: palette.textSoft,
+    fontFamily: fonts.bodySemi,
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 18,
+    maxWidth: "92%",
   },
   actions: {
     marginTop: spacing.md,
     flexDirection: "row",
     gap: spacing.sm,
+    width: "100%",
   },
   button: {
     flex: 1,
@@ -152,6 +222,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontFamily: fonts.bodyBold,
     fontSize: 13,
+    textAlign: "center",
   },
   secondaryBtn: {
     borderWidth: 1,
@@ -162,5 +233,6 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontFamily: fonts.bodySemi,
     fontSize: 13,
+    textAlign: "center",
   },
 });

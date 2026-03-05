@@ -36,15 +36,22 @@ export const RootTabs = () => {
           tabBarInactiveTintColor: palette.textSoft,
           tabBarStyle: {
             backgroundColor: palette.card,
-            borderTopColor: palette.line,
-            borderTopWidth: 1,
+            borderTopColor: "transparent",
+            borderTopWidth: 0,
             height: 58 + insets.bottom + 8,
             paddingBottom: Math.max(8, insets.bottom),
             paddingTop: 8,
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            shadowColor: "#0A1825",
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: -4 },
+            elevation: 12,
           },
           tabBarLabelStyle: {
             fontFamily: fonts.bodySemi,
-            fontSize: 11,
+            fontSize: 12,
           },
           tabBarIcon: ({ color, size }) => {
             const nameByRoute: Record<string, string> = {

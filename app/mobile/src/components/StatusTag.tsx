@@ -29,6 +29,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     backgroundColor: "#FFFFFF",
   },
@@ -40,5 +41,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 12,
     fontFamily: fonts.bodySemi,
+    textAlign: "center",
   },
 });

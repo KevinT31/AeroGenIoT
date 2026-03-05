@@ -13,11 +13,9 @@ type PanelProps = {
 export const Panel = ({ title, subtitle, rightSlot, style, children }: PanelProps) => (
   <View style={[styles.card, style]}>
     <View style={styles.header}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </View>
-      {rightSlot}
+      {rightSlot ? <View style={styles.iconWrap}>{rightSlot}</View> : null}
+      <Text style={styles.title}>{title}</Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
     <View style={styles.content}>{children}</View>
   </View>
@@ -29,27 +27,32 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: palette.line,
-    padding: spacing.lg,
+    padding: spacing.lg + 2,
     ...shadows.card,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  iconWrap: {
+    marginBottom: 4,
   },
   title: {
     color: palette.text,
     fontSize: 16,
     fontFamily: fonts.titleMedium,
+    textAlign: "center",
   },
   subtitle: {
     marginTop: 2,
     color: palette.textSoft,
     fontSize: 12,
     fontFamily: fonts.body,
+    textAlign: "center",
   },
   content: {
     marginTop: spacing.md,
+    alignItems: "center",
   },
 });
