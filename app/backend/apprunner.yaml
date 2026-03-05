@@ -1,0 +1,66 @@
+version: 1.0
+runtime: nodejs22
+
+build:
+  commands:
+    build:
+      - npm ci
+      - npm run prisma:generate
+      - npm run build
+
+run:
+  command: node scripts/apprunner-start.js
+
+  network:
+    port: 3000
+    env: PORT
+
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: ENABLE_PUSH
+      value: "false"
+    - name: MOCK_DATA
+      value: "false"
+    - name: MOCK_AI
+      value: "false"
+    - name: ENABLE_JOBS
+      value: "false"
+    - name: PRISMA_EAGER_CONNECT
+      value: "false"
+    - name: AUDIT_LOG
+      value: "false"
+    - name: WS_AUTH_REQUIRED
+      value: "false"
+    - name: DEFAULT_LOAD_W
+      value: "300"
+    - name: SIM_INTERVAL_SECONDS
+      value: "5"
+    - name: ALERT_WIND_DANGEROUS_MS
+      value: "20"
+    - name: ALERT_GEN_TEMP_HIGH_C
+      value: "80"
+    - name: ALERT_VIBRATION_HIGH_RMS
+      value: "6"
+    - name: ALERT_BATTERY_LOW_PCT
+      value: "20"
+
+    - name: S3_BUCKET
+      value: "aerogeniot-uploads"
+    - name: S3_REGION
+      value: "us-east-1"
+    - name: S3_PUBLIC_BASE_URL
+      value: "https://aerogeniot-uploads.s3.amazonaws.com"
+    - name: UPLOAD_URL_EXPIRES
+      value: "900"
+
+  secrets:
+    - name: DATABASE_URL
+      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/DATABASE_URL
+    - name: REDIS_URL
+      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/REDIS_URL
+    - name: JWT_SECRET
+      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/JWT_SECRET
+    - name: INGEST_API_KEY
+      value-from: arn:aws:secretsmanager:us-east-1:123456789012:secret:aerogeniot/INGEST_API_KEY
+

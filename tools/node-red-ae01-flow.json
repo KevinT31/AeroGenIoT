@@ -1,0 +1,113 @@
+[
+  {
+    "id": "a3b0c9f1f9b00101",
+    "type": "tab",
+    "label": "AeroGenIoT AE-01",
+    "disabled": false,
+    "info": "Envia lectura fake cada 5s a /api/v1/readings/ingest"
+  },
+  {
+    "id": "a3b0c9f1f9b00102",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "cada 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 120,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00103",
+    "type": "function",
+    "z": "a3b0c9f1f9b00101",
+    "name": "payload aerogenerador",
+    "func": "const state = context.get('state') || {\n  wind: 8.2,\n  volt: 48.6,\n  curr: 12.1,\n  vib: 2.4,\n  temp: 54,\n  batt: 75,\n  load: 320\n};\n\nconst jitter = (v, j) => Number((v + (Math.random() * 2 - 1) * j).toFixed(2));\nconst clamp = (v, min, max) => Math.max(min, Math.min(max, v));\n\nstate.wind = clamp(jitter(state.wind, 0.7), 0, 30);\nstate.volt = clamp(jitter(state.volt, 0.35), 0, 90);\nstate.curr = clamp(jitter(state.curr, 0.8), 0, 120);\nstate.vib = clamp(jitter(state.vib, 0.2), 0, 15);\nstate.temp = clamp(jitter(state.temp, 0.6), -10, 120);\nstate.load = clamp(jitter(state.load, 8), 100, 3000);\nstate.batt = clamp(Number((state.batt + (state.wind > 10 ? 0.2 : state.wind < 3 ? -0.6 : -0.1)).toFixed(2)), 0, 100);\n\ncontext.set('state', state);\n\nmsg.headers = {\n  \"Content-Type\": \"application/json\",\n  \"x-api-key\": env.get(\"INGEST_API_KEY\") || \"dev-ingest-key\"\n};\n\nconst apiBase = (env.get(\"API_BASE\") || \"http://localhost:3000\").replace(/\\/+$/, \"\");\nmsg.url = `${apiBase}/api/v1/readings/ingest`;\n\nmsg.payload = {\n  deviceId: env.get(\"DEVICE_ID\") || \"AE-01\",\n  farmId: env.get(\"FARM_ID\") || \"FARM-01\",\n  plotId: env.get(\"PLOT_ID\") || \"PLOT-01\",\n  ts: new Date().toISOString(),\n  windSpeedMs: state.wind,\n  genVoltageV: state.volt,\n  genCurrentA: state.curr,\n  vibrationRms: state.vib,\n  genTempC: state.temp,\n  batteryPct: Math.round(state.batt),\n  loadPowerW: Math.round(state.load),\n  mode: \"node-red\"\n};\n\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 120,
+    "wires": [
+      [
+        "a3b0c9f1f9b00104",
+        "a3b0c9f1f9b00106"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00104",
+    "type": "http request",
+    "z": "a3b0c9f1f9b00101",
+    "name": "POST ingest",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 560,
+    "y": 120,
+    "wires": [
+      [
+        "a3b0c9f1f9b00105"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00105",
+    "type": "debug",
+    "z": "a3b0c9f1f9b00101",
+    "name": "respuesta ingest",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 760,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "a3b0c9f1f9b00106",
+    "type": "debug",
+    "z": "a3b0c9f1f9b00101",
+    "name": "payload enviado",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 560,
+    "y": 180,
+    "wires": []
+  }
+]

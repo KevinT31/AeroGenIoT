@@ -1,0 +1,377 @@
+// Prisma schema (AeroGenIoT)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  admin
+  viewer
+}
+
+enum DeviceStatus {
+  provisioned
+  active
+  offline
+  retired
+}
+
+enum AlertStatus {
+  open
+  acknowledged
+  resolved
+}
+
+enum AlertType {
+  humidity
+  temperature
+  ph
+  ce
+  npk
+  wind_danger
+  generator_temp_high
+  vibration_high
+  battery_low
+}
+
+enum PowerSource {
+  WIND
+  BATTERY
+  BOTH
+}
+
+enum ReportStatus {
+  open
+  closed
+}
+
+enum ReportConfidence {
+  low
+  med
+  high
+}
+
+enum ReportMessageRole {
+  user
+  assistant
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String?
+  googleSub     String?        @unique
+  authProvider  String?
+  name          String
+  role          UserRole       @default(viewer)
+  preferences   Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  farms         Farm[]
+  refreshTokens RefreshToken[]
+  pushTokens    PushToken[]
+  auditLogs     AuditLog[]
+  reports       Report[]
+}
+
+model Farm {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  name      String
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  plots     Plot[]
+  devices   Device[]
+  alerts    Alert[]
+  thresholds ThresholdProfile[]
+  readings  SensorReading[]
+}
+
+model Plot {
+  id        String   @id @default(uuid())
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id])
+  name      String
+  cropType  String?
+  cropId    String?
+  stageId   String?
+  zoneId    String?
+  latitude  Float?
+  longitude Float?
+  shareAnon Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  devices   Device[]
+  readings  SensorReading[]
+  thresholds ThresholdProfile[]
+  alerts    Alert[]
+  reports   Report[]
+  crop      Crop?    @relation(fields: [cropId], references: [id])
+  stage     CropStage? @relation(fields: [stageId], references: [id])
+  zone      Zone?    @relation(fields: [zoneId], references: [id])
+}
+
+model Crop {
+  id        String       @id @default(uuid())
+  name      String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  stages    CropStage[]
+  plots     Plot[]
+  reports   Report[]
+  prices    MarketPrice[]
+  aggregates NearbyAggregate[]
+}
+
+model CropStage {
+  id        String   @id @default(uuid())
+  cropId    String
+  name      String
+  order     Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  crop      Crop     @relation(fields: [cropId], references: [id])
+  plots     Plot[]
+  reports   Report[]
+}
+
+model Zone {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  plots     Plot[]
+  reports   Report[]
+  prices    MarketPrice[]
+  aggregates NearbyAggregate[]
+}
+
+model Report {
+  id               String           @id @default(uuid())
+  userId           String
+  parcelId         String?
+  cropId           String?
+  stageId          String?
+  zoneId           String?
+  imageUrl         String
+  audioUrl         String?
+  summary          String
+  actions          String[]
+  prevention       String[]
+  doNotDo          String[]
+  redFlags         String[]
+  productsSuggested Json?
+  confidence       ReportConfidence @default(med)
+  status           ReportStatus     @default(open)
+  version          Int              @default(1)
+  feedback         String?
+  audit            Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  user             User             @relation(fields: [userId], references: [id])
+  parcel           Plot?            @relation(fields: [parcelId], references: [id])
+  crop             Crop?            @relation(fields: [cropId], references: [id])
+  stage            CropStage?       @relation(fields: [stageId], references: [id])
+  zone             Zone?            @relation(fields: [zoneId], references: [id])
+  messages         ReportMessage[]
+}
+
+model ReportMessage {
+  id        String            @id @default(uuid())
+  reportId  String
+  role      ReportMessageRole
+  content   String
+  createdAt DateTime          @default(now())
+  report    Report            @relation(fields: [reportId], references: [id])
+}
+
+model MarketPrice {
+  id        String   @id @default(uuid())
+  cropId    String
+  zoneId    String
+  date      DateTime
+  priceMin  Float
+  priceMax  Float
+  source    String
+  createdAt DateTime @default(now())
+  crop      Crop     @relation(fields: [cropId], references: [id])
+  zone      Zone     @relation(fields: [zoneId], references: [id])
+  @@unique([cropId, zoneId, date, source])
+}
+
+model NearbyAggregate {
+  id          String   @id @default(uuid())
+  zoneId      String
+  cropId      String
+  count       Int
+  lastUpdated DateTime
+  zone        Zone     @relation(fields: [zoneId], references: [id])
+  crop        Crop     @relation(fields: [cropId], references: [id])
+  @@unique([zoneId, cropId])
+}
+
+model SourceCache {
+  id        String   @id @default(uuid())
+  source    String
+  key       String
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([source, key], name: "source_key")
+}
+
+model Device {
+  id        String       @id @default(uuid())
+  farmId    String?
+  plotId    String?
+  farm      Farm?        @relation(fields: [farmId], references: [id])
+  plot      Plot?        @relation(fields: [plotId], references: [id])
+  name      String
+  status    DeviceStatus @default(provisioned)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  readings  SensorReading[]
+  alerts    Alert[]
+}
+
+model SensorReading {
+  id          String    @id @default(uuid())
+  deviceId    String
+  farmId      String?
+  plotId      String?
+  device      Device    @relation(fields: [deviceId], references: [id])
+  farm        Farm?     @relation(fields: [farmId], references: [id])
+  plot        Plot?     @relation(fields: [plotId], references: [id])
+  timestamp   DateTime
+  humidity    Float
+  temperature Float
+  ph          Float
+  ce          Float?
+  n           Float
+  p           Float
+  k           Float
+  airTemperature Float?
+  airHumidity    Float?
+  airPressure    Float?
+  windSpeed      Float?
+  genVoltageV    Float?
+  genCurrentA    Float?
+  powerW         Float?
+  loadPowerW     Float?
+  sourceNow      PowerSource?
+  sourceReason   String?
+  vibrationRms   Float?
+  genTempC       Float?
+  batteryPct     Float?
+  energyTodayKwh Float?
+  ingestMode     String?
+  solarRadiation Float?
+  rainfall       Float?
+  et0            Float?
+  etc            Float?
+  kc             Float?
+  kcStage        String?
+  daysPlanted    Int?
+  latitude       Float?
+  longitude      Float?
+  season         String
+  createdAt   DateTime  @default(now())
+  recommendation Recommendation?
+  @@index([deviceId, timestamp])
+}
+
+model Recommendation {
+  id                      String   @id @default(uuid())
+  readingId               String   @unique
+  reading                 SensorReading @relation(fields: [readingId], references: [id])
+  cantidadAgua            Float
+  recomendarRiego         Boolean
+  motivo                  String?
+  createdAt               DateTime @default(now())
+}
+
+model Alert {
+  id        String      @id @default(uuid())
+  deviceId  String?
+  farmId    String
+  plotId    String?
+  device    Device?     @relation(fields: [deviceId], references: [id])
+  farm      Farm        @relation(fields: [farmId], references: [id])
+  plot      Plot?       @relation(fields: [plotId], references: [id])
+  type      AlertType
+  status    AlertStatus @default(open)
+  message   String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  @@index([deviceId, createdAt])
+}
+
+model ThresholdProfile {
+  id              String   @id @default(uuid())
+  farmId          String
+  plotId          String?
+  farm            Farm     @relation(fields: [farmId], references: [id])
+  plot            Plot?    @relation(fields: [plotId], references: [id])
+  version         Int      @default(1)
+  humidityMin     Float
+  humidityMax     Float
+  temperatureMin  Float
+  temperatureMax  Float
+  phMin           Float
+  phMax           Float
+  ceMin           Float
+  ceMax           Float
+  nMin            Float
+  nMax            Float
+  pMin            Float
+  pMax            Float
+  kMin            Float
+  kMax            Float
+  createdAt       DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model PushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  platform  String
+  deviceId  String?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  path      String
+  method    String
+  status    Int
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
