@@ -33,7 +33,10 @@
     ],
     "extra": {
       "appName": "AeroGenIoT",
-      "deviceDefault": "AE-01"
+      "deviceDefault": "AE-01",
+      "eas": {
+        "projectId": "0ca3a330-e72f-458f-bf20-12f43b706a3c"
+      }
     }
   }
 }

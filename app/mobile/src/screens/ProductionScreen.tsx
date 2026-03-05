@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Panel } from "../components/Panel";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
@@ -8,46 +10,53 @@ import { energyEquivalences, round, weeklyEnergySeries } from "../utils/format";
 
 export const ProductionScreen = () => {
   const { reading } = useAero();
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
   const todayKwh = Number(reading?.energyTodayKwh || 0);
   const equivalent = energyEquivalences(todayKwh);
   const weekly = useMemo(() => weeklyEnergySeries(todayKwh), [todayKwh]);
   const maxValue = Math.max(...weekly.map((item) => item.kwh), 0.1);
   const bestIndex = weekly.findIndex((item) => item.kwh === maxValue);
   const bestDay = weekly[Math.max(0, bestIndex)]?.label || "D";
+  const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <LinearGradient colors={["#0891B2", "#38BDF8"]} style={styles.hero}>
-        <Text style={styles.heroTitle}>Produccion del aerogenerador</Text>
-        <Text style={styles.heroSub}>Rendimiento diario y tendencia semanal.</Text>
-      </LinearGradient>
+    <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
+      <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}>
+        <LinearGradient colors={["#0891B2", "#38BDF8"]} style={styles.hero}>
+          <Text style={styles.heroTitle}>Produccion del aerogenerador</Text>
+          <Text style={styles.heroSub}>Rendimiento diario y tendencia semanal.</Text>
+        </LinearGradient>
 
-      <Panel title="Energia generada hoy" subtitle="Acumulado diario">
-        <Text style={styles.energyValue}>{round(todayKwh, 2)} kWh</Text>
-        <Text style={styles.infoText}>Suficiente para cargar {equivalent.phones} celulares.</Text>
-        <Text style={styles.infoText}>Tambien cubre luces del campo por {equivalent.fieldLightsHours} horas aprox.</Text>
-      </Panel>
+        <Panel title="Energia generada hoy" subtitle="Acumulado diario">
+          <Text style={styles.energyValue}>{round(todayKwh, 2)} kWh</Text>
+          <Text style={styles.infoText}>Suficiente para cargar {equivalent.phones} celulares.</Text>
+          <Text style={styles.infoText}>Tambien cubre luces del campo por {equivalent.fieldLightsHours} horas aprox.</Text>
+        </Panel>
 
-      <Panel title="Energia semanal" subtitle="Ultimos 7 dias (estimado)">
-        <View style={styles.chart}>
-          {weekly.map((item) => {
-            const height = Math.max(18, (item.kwh / maxValue) * 120);
-            return (
-              <View key={item.label} style={styles.barCol}>
-                <View style={[styles.bar, { height }]} />
-                <Text style={styles.barLabel}>{item.label}</Text>
-                <Text style={styles.barValue}>{round(item.kwh, 1)}</Text>
-              </View>
-            );
-          })}
-        </View>
-      </Panel>
+        <Panel title="Energia semanal" subtitle="Ultimos 7 dias (estimado)">
+          <View style={styles.chart}>
+            {weekly.map((item) => {
+              const height = Math.max(18, (item.kwh / maxValue) * 120);
+              return (
+                <View key={item.label} style={styles.barCol}>
+                  <View style={[styles.bar, { height }]} />
+                  <Text style={styles.barLabel}>{item.label}</Text>
+                  <Text style={styles.barValue}>{round(item.kwh, 1)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </Panel>
 
-      <Panel title="Hora de mayor generacion" subtitle="Patron esperado">
-        <Text style={styles.energyValueSmall}>11:00 - 14:00</Text>
-        <Text style={styles.infoText}>Mejor rendimiento semanal en dia {bestDay}. Se recomienda priorizar cargas en ese bloque.</Text>
-      </Panel>
-    </ScrollView>
+        <Panel title="Hora de mayor generacion" subtitle="Patron esperado">
+          <Text style={styles.energyValueSmall}>11:00 - 14:00</Text>
+          <Text style={styles.infoText}>
+            Mejor rendimiento semanal en dia {bestDay}. Se recomienda priorizar cargas en ese bloque.
+          </Text>
+        </Panel>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -58,8 +67,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+    paddingTop: spacing.md,
     gap: spacing.md,
-    paddingBottom: spacing.xl,
   },
   hero: {
     borderRadius: radius.lg,

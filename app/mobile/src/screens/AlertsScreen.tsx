@@ -1,7 +1,9 @@
 import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ENV } from "../config/env";
 import { Panel } from "../components/Panel";
 import { StatusTag } from "../components/StatusTag";
@@ -18,7 +20,10 @@ const alertMeta: Record<string, { icon: string; level: "ok" | "warn" | "stop"; t
 
 export const AlertsScreen = () => {
   const { alerts, ackedAlerts, markAlertReceived } = useAero();
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
   const sorted = sortAlertsByDate(alerts);
+  const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
 
   const callSupport = async () => {
     const url = `tel:${ENV.supportPhone.replace(/\s+/g, "")}`;
@@ -26,54 +31,56 @@ export const AlertsScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <LinearGradient colors={["#0EA5E9", "#38BDF8"]} style={styles.hero}>
-        <Text style={styles.heroTitle}>Alertas del sistema</Text>
-        <Text style={styles.heroSub}>Eventos importantes en tiempo real para la parcela.</Text>
-      </LinearGradient>
+    <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
+      <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}>
+        <LinearGradient colors={["#0EA5E9", "#38BDF8"]} style={styles.hero}>
+          <Text style={styles.heroTitle}>Alertas del sistema</Text>
+          <Text style={styles.heroSub}>Eventos importantes en tiempo real para la parcela.</Text>
+        </LinearGradient>
 
-      {!sorted.length ? (
-        <Panel title="Sin alertas recientes" subtitle="Estado estable">
-          <Text style={styles.emptyText}>No se detectaron alertas para este dispositivo en los ultimos minutos.</Text>
-        </Panel>
-      ) : null}
-
-      {sorted.map((alert) => {
-        const meta = alertMeta[alert.type] || {
-          icon: "alert-circle-outline",
-          level: "warn" as const,
-          title: "Evento del sistema",
-        };
-        const received = ackedAlerts[alert.id] || alert.status !== "open";
-
-        return (
-          <Panel
-            key={alert.id}
-            title={meta.title}
-            subtitle={timeAgo(alert.createdAt)}
-            rightSlot={<MaterialCommunityIcons name={meta.icon as any} size={24} color={palette.sky700} />}
-          >
-            <Text style={styles.message}>{alert.message}</Text>
-            <View style={styles.metaRow}>
-              <StatusTag level={meta.level} text={received ? "Recibido" : "Pendiente"} />
-              <Text style={styles.smallText}>ID: {alert.id.slice(0, 8)}</Text>
-            </View>
-
-            <View style={styles.actions}>
-              <Pressable
-                onPress={() => markAlertReceived(alert.id)}
-                style={[styles.button, styles.primaryBtn, received && styles.primaryBtnDisabled]}
-              >
-                <Text style={styles.primaryBtnText}>{received ? "Recibido" : "Marcar recibido"}</Text>
-              </Pressable>
-              <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>
-                <Text style={styles.secondaryBtnText}>Llamar soporte</Text>
-              </Pressable>
-            </View>
+        {!sorted.length ? (
+          <Panel title="Sin alertas recientes" subtitle="Estado estable">
+            <Text style={styles.emptyText}>No se detectaron alertas para este dispositivo en los ultimos minutos.</Text>
           </Panel>
-        );
-      })}
-    </ScrollView>
+        ) : null}
+
+        {sorted.map((alert) => {
+          const meta = alertMeta[alert.type] || {
+            icon: "alert-circle-outline",
+            level: "warn" as const,
+            title: "Evento del sistema",
+          };
+          const received = ackedAlerts[alert.id] || alert.status !== "open";
+
+          return (
+            <Panel
+              key={alert.id}
+              title={meta.title}
+              subtitle={timeAgo(alert.createdAt)}
+              rightSlot={<MaterialCommunityIcons name={meta.icon as any} size={24} color={palette.sky700} />}
+            >
+              <Text style={styles.message}>{alert.message}</Text>
+              <View style={styles.metaRow}>
+                <StatusTag level={meta.level} text={received ? "Recibido" : "Pendiente"} />
+                <Text style={styles.smallText}>ID: {alert.id.slice(0, 8)}</Text>
+              </View>
+
+              <View style={styles.actions}>
+                <Pressable
+                  onPress={() => markAlertReceived(alert.id)}
+                  style={[styles.button, styles.primaryBtn, received && styles.primaryBtnDisabled]}
+                >
+                  <Text style={styles.primaryBtnText}>{received ? "Recibido" : "Marcar recibido"}</Text>
+                </Pressable>
+                <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>
+                  <Text style={styles.secondaryBtnText}>Llamar soporte</Text>
+                </Pressable>
+              </View>
+            </Panel>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -84,8 +91,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+    paddingTop: spacing.md,
     gap: spacing.md,
-    paddingBottom: spacing.xl,
   },
   hero: {
     borderRadius: radius.lg,

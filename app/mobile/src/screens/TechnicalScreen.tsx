@@ -1,6 +1,8 @@
 import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Panel } from "../components/Panel";
 import { StatusTag } from "../components/StatusTag";
 import { useAero } from "../state/AeroContext";
@@ -18,46 +20,54 @@ const Row = ({ label, value, unit }: { label: string; value: string; unit: strin
 
 export const TechnicalScreen = () => {
   const { reading } = useAero();
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
   const system = systemState(reading);
   const wind = windState(reading?.windSpeedMs);
   const temp = temperatureState(reading?.genTempC);
   const vibration = vibrationState(reading?.vibrationRms);
+  const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <LinearGradient colors={["#0369A1", "#0EA5E9"]} style={styles.hero}>
-        <Text style={styles.heroTitle}>Detalles tecnicos</Text>
-        <Text style={styles.heroSub}>Panel para diagnostico del equipo.</Text>
-      </LinearGradient>
+    <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
+      <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}>
+        <LinearGradient colors={["#0369A1", "#0EA5E9"]} style={styles.hero}>
+          <Text style={styles.heroTitle}>Detalles tecnicos</Text>
+          <Text style={styles.heroSub}>Panel para diagnostico del equipo.</Text>
+        </LinearGradient>
 
-      <Panel title="Estado general">
-        <StatusTag level={system.level} text={system.title} />
-        <Text style={styles.helpText}>{system.message}</Text>
-      </Panel>
+        <Panel title="Estado general">
+          <StatusTag level={system.level} text={system.title} />
+          <Text style={styles.helpText}>{system.message}</Text>
+        </Panel>
 
-      <Panel title="Sensores IoT">
-        <Row label="Velocidad del viento" value={round(reading?.windSpeedMs)} unit="m/s" />
-        <Row label="Voltaje del generador" value={round(reading?.genVoltageV)} unit="V" />
-        <Row label="Corriente del sistema" value={round(reading?.genCurrentA)} unit="A" />
-        <Row label="Potencia calculada" value={round(reading?.powerW)} unit="W" />
-        <Row label="Temperatura generador" value={round(reading?.genTempC)} unit="C" />
-        <Row label="Vibracion RMS" value={round(reading?.vibrationRms)} unit="m/s2" />
-        <Row label="Nivel de bateria" value={round(reading?.batteryPct, 0)} unit="%" />
-      </Panel>
+        <Panel title="Sensores IoT">
+          <Row label="Velocidad del viento" value={round(reading?.windSpeedMs)} unit="m/s" />
+          <Row label="Voltaje del generador" value={round(reading?.genVoltageV)} unit="V" />
+          <Row label="Corriente del sistema" value={round(reading?.genCurrentA)} unit="A" />
+          <Row label="Potencia calculada" value={round(reading?.powerW)} unit="W" />
+          <Row label="Temperatura generador" value={round(reading?.genTempC)} unit="C" />
+          <Row label="Vibracion RMS" value={round(reading?.vibrationRms)} unit="m/s2" />
+          <Row label="Nivel de bateria" value={round(reading?.batteryPct, 0)} unit="%" />
+        </Panel>
 
-      <Panel title="Decision de fuente de energia" subtitle={sourceLabel(reading?.sourceNow)}>
-        <Text style={styles.helpText}>{reading?.sourceReason || "Sin datos de decision por el momento."}</Text>
-        <View style={styles.tagRow}>
-          <StatusTag level={wind.label.includes("riesgo") ? "stop" : wind.label.includes("optima") ? "ok" : "warn"} text={`Viento: ${wind.label}`} />
-        </View>
-        <View style={styles.tagRow}>
-          <StatusTag level={temp.level} text={`Temperatura: ${temp.label}`} />
-        </View>
-        <View style={styles.tagRow}>
-          <StatusTag level={vibration.level} text={`Vibracion: ${vibration.label}`} />
-        </View>
-      </Panel>
-    </ScrollView>
+        <Panel title="Decision de fuente de energia" subtitle={sourceLabel(reading?.sourceNow)}>
+          <Text style={styles.helpText}>{reading?.sourceReason || "Sin datos de decision por el momento."}</Text>
+          <View style={styles.tagRow}>
+            <StatusTag
+              level={wind.label.includes("riesgo") ? "stop" : wind.label.includes("optima") ? "ok" : "warn"}
+              text={`Viento: ${wind.label}`}
+            />
+          </View>
+          <View style={styles.tagRow}>
+            <StatusTag level={temp.level} text={`Temperatura: ${temp.label}`} />
+          </View>
+          <View style={styles.tagRow}>
+            <StatusTag level={vibration.level} text={`Vibracion: ${vibration.label}`} />
+          </View>
+        </Panel>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -68,8 +78,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+    paddingTop: spacing.md,
     gap: spacing.md,
-    paddingBottom: spacing.xl,
   },
   hero: {
     borderRadius: radius.lg,
