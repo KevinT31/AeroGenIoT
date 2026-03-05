@@ -35,7 +35,6 @@ node tools/simulate-ae01.mjs --mode=auto --interval=5000
 
 ```bash
 cd app/mobile
-copy .env.example .env
 npm install
 npm run start
 ```

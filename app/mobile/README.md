@@ -8,7 +8,7 @@ Aplicacion movil para monitoreo de aerogenerador con 4 pantallas:
 
 ## 1) Variables de entorno
 
-Copia `.env.example` a `.env` y completa:
+Crea `.env` y completa:
 
 ```bash
 EXPO_PUBLIC_API_BASE=https://tu-app-runner
