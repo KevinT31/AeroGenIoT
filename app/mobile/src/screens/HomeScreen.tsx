@@ -20,6 +20,8 @@ import {
   windState,
 } from "../utils/format";
 import { ENV } from "../config/env";
+import { useI18n } from "../i18n/LanguageContext";
+import { SourceNow } from "../types/aerogen";
 
 const levelColor = {
   ok: palette.good,
@@ -29,25 +31,33 @@ const levelColor = {
 
 export const HomeScreen = () => {
   const { reading, alerts, ackedAlerts, loading, apiReachable, lastSyncAt, refresh } = useAero();
+  const { language, t } = useI18n();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
-  const status = systemState(reading);
-  const wind = windState(reading?.windSpeedMs);
-  const temp = temperatureState(reading?.genTempC);
-  const vibration = vibrationState(reading?.vibrationRms);
-  const voltage = voltageState(reading?.genVoltageV);
+  const status = systemState(reading, language);
+  const wind = windState(reading?.windSpeedMs, language);
+  const temp = temperatureState(reading?.genTempC, language);
+  const vibration = vibrationState(reading?.vibrationRms, language);
+  const voltage = voltageState(reading?.genVoltageV, language);
   const autonomyHours = estimateAutonomyHours(reading?.batteryPct, reading?.loadPowerW, ENV.batteryCapacityKwh);
   const activeAlerts = alerts.filter((alert) => alert.status === "open" && !ackedAlerts[alert.id]);
   const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
-  const sourceIcon = reading?.sourceNow === "WIND" ? "weather-windy" : reading?.sourceNow === "BATTERY" ? "battery" : "transmission-tower";
+  const sourceIcon =
+    reading?.sourceNow === "WIND" ? "weather-windy" : reading?.sourceNow === "BATTERY" ? "battery" : "transmission-tower";
   const connectionLevel = apiReachable ? "ok" : "stop";
-  const connectionText = apiReachable ? "Conectado" : "Sin senal";
+  const connectionText = apiReachable ? t("common.connected") : t("common.noSignal");
   const alertTitleByType: Record<string, string> = {
-    wind_danger: "Viento peligroso",
-    generator_temp_high: "Temperatura alta",
-    vibration_high: "Vibracion alta",
-    battery_low: "Bateria baja",
+    wind_danger: t("alerts.type.wind_danger"),
+    generator_temp_high: t("alerts.type.generator_temp_high"),
+    vibration_high: t("alerts.type.vibration_high"),
+    battery_low: t("alerts.type.battery_low"),
   };
+  const sourceReasonBySource: Record<SourceNow, string> = {
+    WIND: t("home.source.reason.WIND"),
+    BATTERY: t("home.source.reason.BATTERY"),
+    BOTH: t("home.source.reason.BOTH"),
+  };
+  const sourceReason = reading?.sourceNow ? sourceReasonBySource[reading.sourceNow] : t("home.source.waiting");
 
   return (
     <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
@@ -60,8 +70,8 @@ export const HomeScreen = () => {
           <View style={styles.heroIconWrap}>
             <MaterialCommunityIcons name="fan" size={24} color="#FFFFFF" />
           </View>
-          <Text style={styles.heroTitle}>Aerogenerador - Parcela Norte</Text>
-          <Text style={styles.heroSub}>Ultima actualizacion: {timeAgo(lastSyncAt)}</Text>
+          <Text style={styles.heroTitle}>{t("home.hero.title")}</Text>
+          <Text style={styles.heroSub}>{t("home.hero.updated", { time: timeAgo(lastSyncAt, language) })}</Text>
           <StatusTag level={connectionLevel} text={connectionText} />
         </LinearGradient>
 
@@ -74,27 +84,31 @@ export const HomeScreen = () => {
             level={status.level}
             text={
               status.level === "ok"
-                ? "Generacion estable"
+                ? t("home.systemTag.ok")
                 : status.level === "warn"
-                  ? "Requiere atencion"
-                  : "Detenido por seguridad"
+                  ? t("home.systemTag.warn")
+                  : t("home.systemTag.stop")
             }
           />
         </Panel>
 
         <Panel
-          title="Alertas activas"
-          subtitle={activeAlerts.length ? `${activeAlerts.length} pendiente(s)` : "Sin alertas pendientes"}
+          title={t("home.activeAlerts.title")}
+          subtitle={
+            activeAlerts.length
+              ? t("home.activeAlerts.subtitleCount", { count: activeAlerts.length })
+              : t("home.activeAlerts.subtitleNone")
+          }
           rightSlot={<MaterialCommunityIcons name="bell-alert-outline" size={24} color={activeAlerts.length ? palette.warn : palette.good} />}
         >
           {!activeAlerts.length ? (
-            <Text style={styles.infoText}>Sin eventos activos por atender.</Text>
+            <Text style={styles.infoText}>{t("home.activeAlerts.noneText")}</Text>
           ) : (
             <View style={styles.alertList}>
               {activeAlerts.map((alert) => (
                 <View key={alert.id} style={styles.alertItem}>
                   <MaterialCommunityIcons name="alert-circle-outline" size={16} color={palette.warn} />
-                  <Text style={styles.alertText}>{alertTitleByType[alert.type] || "Evento del sistema"}</Text>
+                  <Text style={styles.alertText}>{alertTitleByType[alert.type] || t("common.systemEvent")}</Text>
                 </View>
               ))}
             </View>
@@ -102,8 +116,8 @@ export const HomeScreen = () => {
         </Panel>
 
         <Panel
-          title="Estado del viento"
-          subtitle="Anemometro"
+          title={t("home.wind.title")}
+          subtitle={t("home.wind.subtitle")}
           rightSlot={<MaterialCommunityIcons name="weather-windy" size={24} color={palette.sky700} />}
         >
           <Text style={styles.metricValue}>{round(reading?.windSpeedMs)} m/s</Text>
@@ -112,42 +126,44 @@ export const HomeScreen = () => {
         </Panel>
 
         <Panel
-          title="Energia generada hoy"
-          subtitle="Produccion acumulada"
+          title={t("home.energy.title")}
+          subtitle={t("home.energy.subtitle")}
           rightSlot={<MaterialCommunityIcons name="flash" size={24} color={palette.sky700} />}
         >
           <Text style={styles.metricValue}>{round(reading?.energyTodayKwh, 2)} kWh</Text>
-          <Text style={styles.infoText}>Energia disponible para luces del campo y bomba de agua.</Text>
+          <Text style={styles.infoText}>{t("home.energy.info")}</Text>
         </Panel>
 
         <Panel
-          title="Nivel de bateria"
-          subtitle="Almacenamiento actual"
+          title={t("home.battery.title")}
+          subtitle={t("home.battery.subtitle")}
           rightSlot={<MaterialCommunityIcons name="battery-high" size={24} color={palette.sky700} />}
         >
           <Text style={styles.metricValue}>{round(reading?.batteryPct, 0)}%</Text>
           <Text style={styles.infoText}>
-            Autonomia aproximada: {autonomyHours === null ? "--" : `${round(autonomyHours, 1)} horas`}
+            {t("home.battery.autonomy", {
+              hours: autonomyHours === null ? "--" : `${round(autonomyHours, 1)} h`,
+            })}
           </Text>
           <View style={styles.iconLine}>
             <MaterialCommunityIcons name="alert-outline" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>Si baja de 20%, reduce consumo electrico alrededor de 10%.</Text>
+            <Text style={styles.iconLineText}>{t("home.battery.tip")}</Text>
           </View>
         </Panel>
 
         <Panel
-          title="Fuente actual de energia"
-          subtitle={sourceLabel(reading?.sourceNow)}
+          title={t("home.source.title")}
+          subtitle={sourceLabel(reading?.sourceNow, language)}
           rightSlot={<MaterialCommunityIcons name={sourceIcon as any} size={24} color={palette.sky700} />}
         >
-          <Text style={styles.infoText}>{reading?.sourceReason || "Esperando datos para determinar origen de energia."}</Text>
+          <Text style={styles.infoText}>{sourceReason}</Text>
         </Panel>
 
         <View style={styles.row}>
           <View style={styles.col}>
             <Panel
-              title="Estado electrico"
-              subtitle="Basado en voltaje"
+              title={t("home.electrical.title")}
+              subtitle={t("home.electrical.subtitle")}
               rightSlot={<MaterialCommunityIcons name="transmission-tower" size={22} color={palette.sky700} />}
             >
               <StatusTag level={voltage.level} text={voltage.label} />
@@ -155,8 +171,8 @@ export const HomeScreen = () => {
           </View>
           <View style={styles.col}>
             <Panel
-              title="Consumo actual"
-              subtitle="Demanda del sistema"
+              title={t("home.consumption.title")}
+              subtitle={t("home.consumption.subtitle")}
               rightSlot={<MaterialCommunityIcons name="home-lightning-bolt-outline" size={22} color={palette.sky700} />}
             >
               <Text style={[styles.metricValue, { fontSize: 24 }]}>{round(reading?.loadPowerW, 0)} W</Text>
@@ -167,8 +183,8 @@ export const HomeScreen = () => {
         <View style={styles.row}>
           <View style={styles.col}>
             <Panel
-              title="Temperatura"
-              subtitle="Generador"
+              title={t("home.temperature.title")}
+              subtitle={t("home.temperature.subtitle")}
               rightSlot={<MaterialCommunityIcons name="thermometer" size={22} color={palette.sky700} />}
             >
               <StatusTag level={temp.level} text={temp.label} />
@@ -176,8 +192,8 @@ export const HomeScreen = () => {
           </View>
           <View style={styles.col}>
             <Panel
-              title="Vibracion"
-              subtitle="Estado mecanico"
+              title={t("home.vibration.title")}
+              subtitle={t("home.vibration.subtitle")}
               rightSlot={<MaterialCommunityIcons name="vibrate" size={22} color={palette.sky700} />}
             >
               <StatusTag level={vibration.level} text={vibration.label} />
@@ -301,3 +317,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+

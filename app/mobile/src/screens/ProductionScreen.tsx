@@ -8,14 +8,16 @@ import { Panel } from "../components/Panel";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
 import { energyEquivalences, round, weeklyEnergySeries } from "../utils/format";
+import { useI18n } from "../i18n/LanguageContext";
 
 export const ProductionScreen = () => {
   const { reading } = useAero();
+  const { language, t } = useI18n();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const todayKwh = Number(reading?.energyTodayKwh || 0);
   const equivalent = energyEquivalences(todayKwh);
-  const weekly = useMemo(() => weeklyEnergySeries(todayKwh), [todayKwh]);
+  const weekly = useMemo(() => weeklyEnergySeries(todayKwh, language), [todayKwh, language]);
   const maxValue = Math.max(...weekly.map((item) => item.kwh), 0.1);
   const bestIndex = weekly.findIndex((item) => item.kwh === maxValue);
   const bestDay = weekly[Math.max(0, bestIndex)]?.label || "D";
@@ -31,30 +33,30 @@ export const ProductionScreen = () => {
           <View style={styles.heroIconWrap}>
             <MaterialCommunityIcons name="chart-line" size={24} color="#FFFFFF" />
           </View>
-          <Text style={styles.heroTitle}>Produccion del aerogenerador</Text>
-          <Text style={styles.heroSub}>Seguimiento semanal de energia disponible.</Text>
+          <Text style={styles.heroTitle}>{t("production.hero.title")}</Text>
+          <Text style={styles.heroSub}>{t("production.hero.subtitle")}</Text>
         </LinearGradient>
 
         <Panel
-          title="Energia generada hoy"
-          subtitle="Acumulado diario"
+          title={t("production.today.title")}
+          subtitle={t("production.today.subtitle")}
           rightSlot={<MaterialCommunityIcons name="flash-outline" size={24} color={palette.sky700} />}
         >
           <Text style={styles.energyValue}>{round(todayKwh, 2)} kWh</Text>
-          <Text style={styles.infoText}>Suficiente para cargar {equivalent.phones} celulares.</Text>
-          <Text style={styles.infoText}>Tambien cubre luces del campo por {equivalent.fieldLightsHours} horas aprox.</Text>
+          <Text style={styles.infoText}>{t("production.today.phones", { phones: equivalent.phones })}</Text>
+          <Text style={styles.infoText}>{t("production.today.lights", { hours: equivalent.fieldLightsHours })}</Text>
         </Panel>
 
         <Panel
-          title="Energia semanal"
-          subtitle="Ultimos 7 dias"
+          title={t("production.weekly.title")}
+          subtitle={t("production.weekly.subtitle")}
           rightSlot={<MaterialCommunityIcons name="calendar-week-outline" size={24} color={palette.sky700} />}
         >
           <View style={styles.chart}>
-            {weekly.map((item) => {
+            {weekly.map((item, index) => {
               const height = Math.max(18, (item.kwh / maxValue) * 120);
               return (
-                <View key={item.label} style={styles.barCol}>
+                <View key={`${item.label}-${index}`} style={styles.barCol}>
                   <View style={[styles.bar, { height }]} />
                   <Text style={styles.barLabel}>{item.label}</Text>
                   <Text style={styles.barValue}>{round(item.kwh, 1)}</Text>
@@ -65,20 +67,24 @@ export const ProductionScreen = () => {
           <View style={styles.iconLine}>
             <MaterialCommunityIcons name="trending-up" size={16} color={palette.textSoft} />
             <Text style={styles.iconLineText}>
-              Promedio: {round(avgValue, 2)} kWh/dia. Pico: {bestDay} ({round(maxValue, 2)}). Minimo: {minDay} ({round(minValue, 2)}).
+              {t("production.weekly.summary", {
+                avg: round(avgValue, 2),
+                bestDay,
+                max: round(maxValue, 2),
+                minDay,
+                min: round(minValue, 2),
+              })}
             </Text>
           </View>
         </Panel>
 
         <Panel
-          title="Hora de mayor generacion"
-          subtitle="Patron esperado"
+          title={t("production.peak.title")}
+          subtitle={t("production.peak.subtitle")}
           rightSlot={<MaterialCommunityIcons name="clock-time-eight-outline" size={24} color={palette.sky700} />}
         >
-          <Text style={styles.energyValueSmall}>11:00 - 14:00</Text>
-          <Text style={styles.infoText}>
-            Mejor rendimiento semanal en dia {bestDay}. Se recomienda priorizar cargas en ese bloque.
-          </Text>
+          <Text style={styles.energyValueSmall}>{t("production.peak.window")}</Text>
+          <Text style={styles.infoText}>{t("production.peak.tip", { day: bestDay })}</Text>
         </Panel>
       </ScrollView>
     </SafeAreaView>
@@ -202,3 +208,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+

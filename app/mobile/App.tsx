@@ -7,6 +7,7 @@ import React, { useEffect } from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AeroProvider } from "./src/state/AeroContext";
+import { LanguageProvider } from "./src/i18n/LanguageContext";
 import { RootTabs } from "./src/navigation/RootTabs";
 import { palette } from "./src/theme";
 
@@ -44,10 +45,12 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AeroProvider>
-        <StatusBar style="light" />
-        <RootTabs />
-      </AeroProvider>
+      <LanguageProvider>
+        <AeroProvider>
+          <StatusBar style="light" />
+          <RootTabs />
+        </AeroProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }

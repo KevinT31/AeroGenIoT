@@ -10,52 +10,61 @@ import { StatusTag } from "../components/StatusTag";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
 import { sortAlertsByDate, timeAgo } from "../utils/format";
-
-const alertMeta: Record<string, { icon: string; level: "ok" | "warn" | "stop"; title: string }> = {
-  wind_danger: { icon: "weather-windy", level: "stop", title: "Viento peligroso" },
-  generator_temp_high: { icon: "thermometer-high", level: "stop", title: "Temperatura alta" },
-  vibration_high: { icon: "vibrate", level: "warn", title: "Vibracion elevada" },
-  battery_low: { icon: "battery-alert", level: "warn", title: "Bateria baja" },
-};
-
-const actionByAlertType: Record<string, { icon: string; text: string }> = {
-  wind_danger: {
-    icon: "pause-circle-outline",
-    text: "Mantener el sistema detenido hasta que el viento vuelva a rango seguro.",
-  },
-  generator_temp_high: {
-    icon: "thermometer-low",
-    text: "Esperar enfriamiento del generador antes de reanudar operacion.",
-  },
-  vibration_high: {
-    icon: "wrench-outline",
-    text: "Programar revision de aspas y soportes en la siguiente visita tecnica.",
-  },
-  battery_low: {
-    icon: "battery-charging-low",
-    text: "Reducir consumo cerca de 10% y priorizar cargas esenciales.",
-  },
-};
+import { useI18n } from "../i18n/LanguageContext";
 
 export const AlertsScreen = () => {
   const { alerts, ackedAlerts, markAlertReceived } = useAero();
+  const { language, t } = useI18n();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const sorted = sortAlertsByDate(alerts);
   const pendingAlerts = sorted.filter((alert) => alert.status === "open" && !ackedAlerts[alert.id]);
   const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
 
+  const alertMeta: Record<string, { icon: string; level: "ok" | "warn" | "stop"; title: string }> = {
+    wind_danger: { icon: "weather-windy", level: "stop", title: t("alerts.type.wind_danger") },
+    generator_temp_high: { icon: "thermometer-high", level: "stop", title: t("alerts.type.generator_temp_high") },
+    vibration_high: { icon: "vibrate", level: "warn", title: t("alerts.type.vibration_high") },
+    battery_low: { icon: "battery-alert", level: "warn", title: t("alerts.type.battery_low") },
+  };
+
+  const actionByAlertType: Record<string, { icon: string; text: string }> = {
+    wind_danger: {
+      icon: "pause-circle-outline",
+      text: t("alerts.action.wind_danger"),
+    },
+    generator_temp_high: {
+      icon: "thermometer-low",
+      text: t("alerts.action.generator_temp_high"),
+    },
+    vibration_high: {
+      icon: "wrench-outline",
+      text: t("alerts.action.vibration_high"),
+    },
+    battery_low: {
+      icon: "battery-charging-low",
+      text: t("alerts.action.battery_low"),
+    },
+  };
+
+  const messageByAlertType: Record<string, string> = {
+    wind_danger: t("alerts.message.wind_danger"),
+    generator_temp_high: t("alerts.message.generator_temp_high"),
+    vibration_high: t("alerts.message.vibration_high"),
+    battery_low: t("alerts.message.battery_low"),
+  };
+
   const callSupport = async () => {
     const url = `tel:${ENV.supportPhone.replace(/[^\d+]/g, "")}`;
     try {
       const canOpen = await Linking.canOpenURL(url);
       if (!canOpen) {
-        Alert.alert("Soporte", `No se pudo abrir la llamada. Marca manualmente: ${ENV.supportPhone}`);
+        Alert.alert(t("alerts.support.title"), t("alerts.support.error", { phone: ENV.supportPhone }));
         return;
       }
       await Linking.openURL(url);
     } catch {
-      Alert.alert("Soporte", `No se pudo abrir la llamada. Marca manualmente: ${ENV.supportPhone}`);
+      Alert.alert(t("alerts.support.title"), t("alerts.support.error", { phone: ENV.supportPhone }));
     }
   };
 
@@ -66,17 +75,17 @@ export const AlertsScreen = () => {
           <View style={styles.heroIconWrap}>
             <MaterialCommunityIcons name="bell-alert" size={24} color="#FFFFFF" />
           </View>
-          <Text style={styles.heroTitle}>Alertas del sistema</Text>
-          <Text style={styles.heroSub}>Mensajes importantes para decidir acciones rapidas en campo.</Text>
+          <Text style={styles.heroTitle}>{t("alerts.hero.title")}</Text>
+          <Text style={styles.heroSub}>{t("alerts.hero.subtitle")}</Text>
         </LinearGradient>
 
         {!pendingAlerts.length ? (
           <Panel
-            title="Sin alertas pendientes"
-            subtitle="Estado estable"
+            title={t("alerts.none.title")}
+            subtitle={t("alerts.none.subtitle")}
             rightSlot={<MaterialCommunityIcons name="check-decagram-outline" size={24} color={palette.good} />}
           >
-            <Text style={styles.emptyText}>No hay alertas activas por atender en este momento.</Text>
+            <Text style={styles.emptyText}>{t("alerts.none.text")}</Text>
           </Panel>
         ) : null}
 
@@ -84,24 +93,25 @@ export const AlertsScreen = () => {
           const meta = alertMeta[alert.type] || {
             icon: "alert-circle-outline",
             level: "warn" as const,
-            title: "Evento del sistema",
+            title: t("common.systemEvent"),
           };
           const action = actionByAlertType[alert.type] || {
             icon: "information-outline",
-            text: "Revisar la condicion y avisar a soporte si persiste.",
+            text: t("alerts.action.default"),
           };
+          const alertMessage = messageByAlertType[alert.type] || alert.message;
 
           return (
             <Panel
               key={alert.id}
               title={meta.title}
-              subtitle={timeAgo(alert.createdAt)}
+              subtitle={timeAgo(alert.createdAt, language)}
               rightSlot={<MaterialCommunityIcons name={meta.icon as any} size={24} color={palette.sky700} />}
             >
-              <Text style={styles.message}>{alert.message}</Text>
+              <Text style={styles.message}>{alertMessage}</Text>
               <View style={styles.metaRow}>
-                <StatusTag level={meta.level} text="Pendiente" />
-                <Text style={styles.smallText}>{timeAgo(alert.createdAt)}</Text>
+                <StatusTag level={meta.level} text={t("common.pending")} />
+                <Text style={styles.smallText}>{timeAgo(alert.createdAt, language)}</Text>
               </View>
 
               <View style={styles.actionNote}>
@@ -111,10 +121,10 @@ export const AlertsScreen = () => {
 
               <View style={styles.actions}>
                 <Pressable onPress={() => void markAlertReceived(alert.id)} style={[styles.button, styles.primaryBtn]}>
-                  <Text style={styles.primaryBtnText}>Marcar recibido</Text>
+                  <Text style={styles.primaryBtnText}>{t("alerts.button.received")}</Text>
                 </Pressable>
                 <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>
-                  <Text style={styles.secondaryBtnText}>Llamar soporte</Text>
+                  <Text style={styles.secondaryBtnText}>{t("alerts.button.support")}</Text>
                 </Pressable>
               </View>
             </Panel>
@@ -239,3 +249,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
