@@ -41,6 +41,12 @@ export const HomeScreen = () => {
   const equivalents = energyEquivalences(reading?.energyTodayKwh);
   const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
   const sourceIcon = reading?.sourceNow === "WIND" ? "weather-windy" : reading?.sourceNow === "BATTERY" ? "battery" : "transmission-tower";
+  const connectionLevel = !apiReachable ? "stop" : isConnectedRealtime ? "ok" : "warn";
+  const connectionText = !apiReachable
+    ? "Sin senal"
+    : isConnectedRealtime
+      ? "Conectado en tiempo real"
+      : "Conectado (actualiza cada 5s)";
   const windAction =
     (reading?.windSpeedMs ?? 0) < 3
       ? "Prioriza cargas esenciales hasta que suba el viento."
@@ -61,10 +67,7 @@ export const HomeScreen = () => {
           </View>
           <Text style={styles.heroTitle}>Aerogenerador - Parcela Norte</Text>
           <Text style={styles.heroSub}>Ultima actualizacion: {timeAgo(lastSyncAt)}</Text>
-          <StatusTag
-            level={isConnectedRealtime && apiReachable ? "ok" : "warn"}
-            text={isConnectedRealtime && apiReachable ? "Conectado" : "Sin senal"}
-          />
+          <StatusTag level={connectionLevel} text={connectionText} />
         </LinearGradient>
 
         <Panel

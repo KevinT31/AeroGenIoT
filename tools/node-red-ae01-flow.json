@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "AeroGenIoT AE-01",
     "disabled": false,
-    "info": "Envia lectura fake cada 5s a /api/v1/readings/ingest"
+    "info": "Escenarios de prueba para aerogenerador. Usa botones para cambiar caso y el timer envia cada 5s."
   },
   {
     "id": "a3b0c9f1f9b00102",
@@ -23,8 +23,211 @@
     "topic": "",
     "payload": "",
     "payloadType": "date",
-    "x": 140,
-    "y": 120,
+    "x": 120,
+    "y": 260,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00111",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: normal",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "normal",
+    "payload": "",
+    "payloadType": "str",
+    "x": 130,
+    "y": 60,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00112",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: wind_danger",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "wind_danger",
+    "payload": "",
+    "payloadType": "str",
+    "x": 150,
+    "y": 100,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00113",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: temp_high",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "temp_high",
+    "payload": "",
+    "payloadType": "str",
+    "x": 145,
+    "y": 140,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00114",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: vibration_high",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "vibration_high",
+    "payload": "",
+    "payloadType": "str",
+    "x": 155,
+    "y": 180,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00115",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: battery_low",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "battery_low",
+    "payload": "",
+    "payloadType": "str",
+    "x": 145,
+    "y": 220,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00116",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: both_source",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "both_source",
+    "payload": "",
+    "payloadType": "str",
+    "x": 150,
+    "y": 300,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00117",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: battery_source",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "battery_source",
+    "payload": "",
+    "payloadType": "str",
+    "x": 155,
+    "y": 340,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -36,15 +239,15 @@
     "type": "function",
     "z": "a3b0c9f1f9b00101",
     "name": "payload aerogenerador",
-    "func": "const state = context.get('state') || {\n  wind: 8.2,\n  volt: 48.6,\n  curr: 12.1,\n  vib: 2.4,\n  temp: 54,\n  batt: 75,\n  load: 320\n};\n\nconst jitter = (v, j) => Number((v + (Math.random() * 2 - 1) * j).toFixed(2));\nconst clamp = (v, min, max) => Math.max(min, Math.min(max, v));\n\nstate.wind = clamp(jitter(state.wind, 0.7), 0, 30);\nstate.volt = clamp(jitter(state.volt, 0.35), 0, 90);\nstate.curr = clamp(jitter(state.curr, 0.8), 0, 120);\nstate.vib = clamp(jitter(state.vib, 0.2), 0, 15);\nstate.temp = clamp(jitter(state.temp, 0.6), -10, 120);\nstate.load = clamp(jitter(state.load, 8), 100, 3000);\nstate.batt = clamp(Number((state.batt + (state.wind > 10 ? 0.2 : state.wind < 3 ? -0.6 : -0.1)).toFixed(2)), 0, 100);\n\ncontext.set('state', state);\n\nmsg.headers = {\n  \"Content-Type\": \"application/json\",\n  \"x-api-key\": env.get(\"INGEST_API_KEY\") || \"dev-ingest-key\"\n};\n\nconst apiBase = (env.get(\"API_BASE\") || \"http://localhost:3000\").replace(/\\/+$/, \"\");\nmsg.url = `${apiBase}/api/v1/readings/ingest`;\n\nmsg.payload = {\n  deviceId: env.get(\"DEVICE_ID\") || \"AE-01\",\n  farmId: env.get(\"FARM_ID\") || \"FARM-01\",\n  plotId: env.get(\"PLOT_ID\") || \"PLOT-01\",\n  ts: new Date().toISOString(),\n  windSpeedMs: state.wind,\n  genVoltageV: state.volt,\n  genCurrentA: state.curr,\n  vibrationRms: state.vib,\n  genTempC: state.temp,\n  batteryPct: Math.round(state.batt),\n  loadPowerW: Math.round(state.load),\n  mode: \"node-red\"\n};\n\nreturn msg;",
+    "func": "let scenario = flow.get(\"scenario\") || \"normal\";\n\nif (msg.topic) {\n  flow.set(\"scenario\", msg.topic);\n  node.status({ fill: \"blue\", shape: \"dot\", text: `escenario: ${msg.topic}` });\n  return null;\n}\n\nconst byScenario = {\n  normal: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 2.4, temp: 54, batt: 75, load: 320 },\n  wind_danger: { wind: 23, volt: 48.6, curr: 12.1, vib: 2.4, temp: 54, batt: 75, load: 320 },\n  temp_high: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 2.4, temp: 85, batt: 75, load: 320 },\n  vibration_high: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 7.0, temp: 54, batt: 75, load: 320 },\n  battery_low: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 2.4, temp: 54, batt: 15, load: 320 },\n  both_source: { wind: 5.0, volt: 24.0, curr: 5.0, vib: 2.4, temp: 54, batt: 60, load: 350 },\n  battery_source: { wind: 1.0, volt: 0.0, curr: 0.0, vib: 2.4, temp: 54, batt: 60, load: 300 }\n};\n\nscenario = flow.get(\"scenario\") || scenario;\nconst base = byScenario[scenario] || byScenario.normal;\nconst jitter = (v, j) => Number((v + (Math.random() * 2 - 1) * j).toFixed(2));\nconst clamp = (v, min, max) => Math.max(min, Math.min(max, v));\n\nconst state = {\n  wind: clamp(jitter(base.wind, 0.2), 0, 30),\n  volt: clamp(jitter(base.volt, 0.2), 0, 90),\n  curr: clamp(jitter(base.curr, 0.4), 0, 120),\n  vib: clamp(jitter(base.vib, 0.1), 0, 15),\n  temp: clamp(jitter(base.temp, 0.2), -10, 120),\n  batt: clamp(jitter(base.batt, 0.2), 0, 100),\n  load: clamp(jitter(base.load, 4), 100, 3000)\n};\n\nmsg.headers = {\n  \"Content-Type\": \"application/json\",\n  \"x-api-key\": env.get(\"INGEST_API_KEY\") || \"dev-ingest-key\"\n};\n\nconst apiBase = (env.get(\"API_BASE\") || \"http://localhost:3000\").replace(/\\/+$/, \"\");\nmsg.url = `${apiBase}/api/v1/readings/ingest`;\n\nmsg.payload = {\n  deviceId: env.get(\"DEVICE_ID\") || \"AE-01\",\n  farmId: env.get(\"FARM_ID\") || \"FARM-01\",\n  plotId: env.get(\"PLOT_ID\") || \"PLOT-01\",\n  ts: new Date().toISOString(),\n  windSpeedMs: state.wind,\n  genVoltageV: state.volt,\n  genCurrentA: state.curr,\n  vibrationRms: state.vib,\n  genTempC: state.temp,\n  batteryPct: Math.round(state.batt),\n  loadPowerW: Math.round(state.load),\n  mode: `node-red:${scenario}`\n};\n\nnode.status({ fill: \"green\", shape: \"dot\", text: `enviando: ${scenario}` });\nreturn msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
-    "x": 350,
-    "y": 120,
+    "x": 390,
+    "y": 260,
     "wires": [
       [
         "a3b0c9f1f9b00104",
@@ -68,8 +271,8 @@
     "authType": "",
     "senderr": false,
     "headers": [],
-    "x": 560,
-    "y": 120,
+    "x": 610,
+    "y": 260,
     "wires": [
       [
         "a3b0c9f1f9b00105"
@@ -89,8 +292,8 @@
     "targetType": "msg",
     "statusVal": "",
     "statusType": "auto",
-    "x": 760,
-    "y": 120,
+    "x": 810,
+    "y": 260,
     "wires": []
   },
   {
@@ -106,8 +309,8 @@
     "targetType": "msg",
     "statusVal": "",
     "statusType": "auto",
-    "x": 560,
-    "y": 180,
+    "x": 620,
+    "y": 320,
     "wires": []
   }
 ]

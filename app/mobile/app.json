@@ -2,7 +2,7 @@
   "expo": {
     "name": "AeroGenIoT",
     "slug": "aerogeniot-mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "scheme": "aerogeniot",
     "icon": "./assets/icon.png",
@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 2,
       "package": "com.aerogeniot.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -24,6 +25,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#EEF2F5",
+      "barStyle": "dark-content"
     },
     "web": {
       "favicon": "./assets/favicon.png"

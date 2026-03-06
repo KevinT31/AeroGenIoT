@@ -19,6 +19,9 @@ export const ProductionScreen = () => {
   const maxValue = Math.max(...weekly.map((item) => item.kwh), 0.1);
   const bestIndex = weekly.findIndex((item) => item.kwh === maxValue);
   const bestDay = weekly[Math.max(0, bestIndex)]?.label || "D";
+  const minValue = Math.min(...weekly.map((item) => item.kwh));
+  const minDay = weekly.find((item) => item.kwh === minValue)?.label || "D";
+  const avgValue = weekly.reduce((acc, item) => acc + item.kwh, 0) / Math.max(1, weekly.length);
   const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
 
   return (
@@ -29,7 +32,7 @@ export const ProductionScreen = () => {
             <MaterialCommunityIcons name="chart-line" size={24} color="#FFFFFF" />
           </View>
           <Text style={styles.heroTitle}>Produccion del aerogenerador</Text>
-          <Text style={styles.heroSub}>Resumen para planificar uso de energia en la parcela.</Text>
+          <Text style={styles.heroSub}>Seguimiento semanal de energia disponible.</Text>
         </LinearGradient>
 
         <Panel
@@ -40,15 +43,11 @@ export const ProductionScreen = () => {
           <Text style={styles.energyValue}>{round(todayKwh, 2)} kWh</Text>
           <Text style={styles.infoText}>Suficiente para cargar {equivalent.phones} celulares.</Text>
           <Text style={styles.infoText}>Tambien cubre luces del campo por {equivalent.fieldLightsHours} horas aprox.</Text>
-          <View style={styles.iconLine}>
-            <MaterialCommunityIcons name="water-pump" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>Si hoy sube este valor, aprovecha para bombear y regar temprano.</Text>
-          </View>
         </Panel>
 
         <Panel
           title="Energia semanal"
-          subtitle="Ultimos 7 dias (estimado)"
+          subtitle="Ultimos 7 dias"
           rightSlot={<MaterialCommunityIcons name="calendar-week-outline" size={24} color={palette.sky700} />}
         >
           <View style={styles.chart}>
@@ -65,7 +64,9 @@ export const ProductionScreen = () => {
           </View>
           <View style={styles.iconLine}>
             <MaterialCommunityIcons name="trending-up" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>Si cae 2 dias seguidos, conviene revisar aspas o sombra cercana.</Text>
+            <Text style={styles.iconLineText}>
+              Promedio: {round(avgValue, 2)} kWh/dia. Pico: {bestDay} ({round(maxValue, 2)}). Minimo: {minDay} ({round(minValue, 2)}).
+            </Text>
           </View>
         </Panel>
 

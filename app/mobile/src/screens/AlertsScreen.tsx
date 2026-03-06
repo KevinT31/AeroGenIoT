@@ -2,7 +2,7 @@ import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ENV } from "../config/env";
 import { Panel } from "../components/Panel";
@@ -42,11 +42,21 @@ export const AlertsScreen = () => {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const sorted = sortAlertsByDate(alerts);
+  const pendingAlerts = sorted.filter((alert) => alert.status === "open" && !ackedAlerts[alert.id]);
   const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
 
   const callSupport = async () => {
-    const url = `tel:${ENV.supportPhone.replace(/\s+/g, "")}`;
-    await Linking.openURL(url);
+    const url = `tel:${ENV.supportPhone.replace(/[^\d+]/g, "")}`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        Alert.alert("Soporte", `No se pudo abrir la llamada. Marca manualmente: ${ENV.supportPhone}`);
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Soporte", `No se pudo abrir la llamada. Marca manualmente: ${ENV.supportPhone}`);
+    }
   };
 
   return (
@@ -60,17 +70,17 @@ export const AlertsScreen = () => {
           <Text style={styles.heroSub}>Mensajes importantes para decidir acciones rapidas en campo.</Text>
         </LinearGradient>
 
-        {!sorted.length ? (
+        {!pendingAlerts.length ? (
           <Panel
-            title="Sin alertas recientes"
+            title="Sin alertas pendientes"
             subtitle="Estado estable"
             rightSlot={<MaterialCommunityIcons name="check-decagram-outline" size={24} color={palette.good} />}
           >
-            <Text style={styles.emptyText}>No se detectaron alertas para este dispositivo en los ultimos minutos.</Text>
+            <Text style={styles.emptyText}>No hay alertas activas por atender en este momento.</Text>
           </Panel>
         ) : null}
 
-        {sorted.map((alert) => {
+        {pendingAlerts.map((alert) => {
           const meta = alertMeta[alert.type] || {
             icon: "alert-circle-outline",
             level: "warn" as const,
@@ -80,7 +90,6 @@ export const AlertsScreen = () => {
             icon: "information-outline",
             text: "Revisar la condicion y avisar a soporte si persiste.",
           };
-          const received = ackedAlerts[alert.id] || alert.status !== "open";
 
           return (
             <Panel
@@ -91,7 +100,7 @@ export const AlertsScreen = () => {
             >
               <Text style={styles.message}>{alert.message}</Text>
               <View style={styles.metaRow}>
-                <StatusTag level={meta.level} text={received ? "Recibido" : "Pendiente"} />
+                <StatusTag level={meta.level} text="Pendiente" />
                 <Text style={styles.smallText}>{timeAgo(alert.createdAt)}</Text>
               </View>
 
@@ -101,11 +110,8 @@ export const AlertsScreen = () => {
               </View>
 
               <View style={styles.actions}>
-                <Pressable
-                  onPress={() => markAlertReceived(alert.id)}
-                  style={[styles.button, styles.primaryBtn, received && styles.primaryBtnDisabled]}
-                >
-                  <Text style={styles.primaryBtnText}>{received ? "Recibido" : "Marcar recibido"}</Text>
+                <Pressable onPress={() => markAlertReceived(alert.id)} style={[styles.button, styles.primaryBtn]}>
+                  <Text style={styles.primaryBtnText}>Marcar recibido</Text>
                 </Pressable>
                 <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>
                   <Text style={styles.secondaryBtnText}>Llamar soporte</Text>
@@ -214,9 +220,6 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     backgroundColor: palette.sky700,
-  },
-  primaryBtnDisabled: {
-    backgroundColor: "#4FB4E3",
   },
   primaryBtnText: {
     color: "#FFFFFF",

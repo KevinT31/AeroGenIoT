@@ -9,6 +9,13 @@
     },
     "release-apk": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://u3bktawysy.us-east-1.awsapprunner.com",
+        "EXPO_PUBLIC_DEVICE_ID": "AE-01",
+        "EXPO_PUBLIC_POLL_MS": "5000",
+        "EXPO_PUBLIC_SUPPORT_PHONE": "+51934076659",
+        "EXPO_PUBLIC_BATTERY_KWH": "3"
+      },
       "android": {
         "buildType": "apk"
       }

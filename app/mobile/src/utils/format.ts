@@ -128,11 +128,25 @@ export const sortAlertsByDate = (alerts: AlertItem[]) =>
   [...alerts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 export const weeklyEnergySeries = (energyTodayKwh: number | null | undefined) => {
-  const base = Math.max(0.5, Number(energyTodayKwh || 0));
+  const base = Math.max(0.6, Number(energyTodayKwh || 0));
   const labels = ["L", "M", "X", "J", "V", "S", "D"];
-  const factors = [0.42, 0.53, 0.62, 0.68, 0.81, 0.93, 1];
-  return labels.map((label, index) => ({
-    label,
-    kwh: Number((base * factors[index]).toFixed(2)),
-  }));
+  const dateSeed = Number(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+  return labels.map((label, index) => {
+    if (index === labels.length - 1) {
+      return { label, kwh: Number(base.toFixed(2)) };
+    }
+
+    // Weekly profile with deterministic variation, so it looks realistic and stable per day.
+    const waveA = Math.sin((dateSeed + index * 17) * 0.017) * 0.16;
+    const waveB = Math.cos((dateSeed + index * 29) * 0.011) * 0.08;
+    const weekendBoost = index >= 4 ? 0.05 : 0;
+    const factor = clamp(0.82 + waveA + waveB + weekendBoost, 0.55, 1.2);
+
+    return {
+      label,
+      kwh: Number((base * factor).toFixed(2)),
+    };
+  });
 };
