@@ -9,7 +9,6 @@ import { StatusTag } from "../components/StatusTag";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
 import {
-  energyEquivalences,
   estimateAutonomyHours,
   round,
   sourceLabel,
@@ -29,7 +28,7 @@ const levelColor = {
 };
 
 export const HomeScreen = () => {
-  const { reading, loading, isConnectedRealtime, apiReachable, lastSyncAt, refresh } = useAero();
+  const { reading, alerts, ackedAlerts, loading, apiReachable, lastSyncAt, refresh } = useAero();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const status = systemState(reading);
@@ -38,21 +37,17 @@ export const HomeScreen = () => {
   const vibration = vibrationState(reading?.vibrationRms);
   const voltage = voltageState(reading?.genVoltageV);
   const autonomyHours = estimateAutonomyHours(reading?.batteryPct, reading?.loadPowerW, ENV.batteryCapacityKwh);
-  const equivalents = energyEquivalences(reading?.energyTodayKwh);
+  const activeAlerts = alerts.filter((alert) => alert.status === "open" && !ackedAlerts[alert.id]);
   const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
   const sourceIcon = reading?.sourceNow === "WIND" ? "weather-windy" : reading?.sourceNow === "BATTERY" ? "battery" : "transmission-tower";
-  const connectionLevel = !apiReachable ? "stop" : isConnectedRealtime ? "ok" : "warn";
-  const connectionText = !apiReachable
-    ? "Sin senal"
-    : isConnectedRealtime
-      ? "Conectado en tiempo real"
-      : "Conectado (actualiza cada 5s)";
-  const windAction =
-    (reading?.windSpeedMs ?? 0) < 3
-      ? "Prioriza cargas esenciales hasta que suba el viento."
-      : (reading?.windSpeedMs ?? 0) > 20
-        ? "Mantener parada por seguridad hasta que baje el viento."
-        : "Buen momento para usar bomba de agua y cargar bateria.";
+  const connectionLevel = apiReachable ? "ok" : "stop";
+  const connectionText = apiReachable ? "Conectado" : "Sin senal";
+  const alertTitleByType: Record<string, string> = {
+    wind_danger: "Viento peligroso",
+    generator_temp_high: "Temperatura alta",
+    vibration_high: "Vibracion alta",
+    battery_low: "Bateria baja",
+  };
 
   return (
     <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
@@ -85,10 +80,25 @@ export const HomeScreen = () => {
                   : "Detenido por seguridad"
             }
           />
-          <View style={styles.iconLine}>
-            <MaterialCommunityIcons name="clipboard-check-outline" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>Revisa esta tarjeta primero para decidir acciones del dia.</Text>
-          </View>
+        </Panel>
+
+        <Panel
+          title="Alertas activas"
+          subtitle={activeAlerts.length ? `${activeAlerts.length} pendiente(s)` : "Sin alertas pendientes"}
+          rightSlot={<MaterialCommunityIcons name="bell-alert-outline" size={24} color={activeAlerts.length ? palette.warn : palette.good} />}
+        >
+          {!activeAlerts.length ? (
+            <Text style={styles.infoText}>Sin eventos activos por atender.</Text>
+          ) : (
+            <View style={styles.alertList}>
+              {activeAlerts.map((alert) => (
+                <View key={alert.id} style={styles.alertItem}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={16} color={palette.warn} />
+                  <Text style={styles.alertText}>{alertTitleByType[alert.type] || "Evento del sistema"}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </Panel>
 
         <Panel
@@ -99,10 +109,6 @@ export const HomeScreen = () => {
           <Text style={styles.metricValue}>{round(reading?.windSpeedMs)} m/s</Text>
           <Text style={styles.metricLabel}>{wind.label}</Text>
           <Text style={styles.infoText}>{wind.message}</Text>
-          <View style={styles.iconLine}>
-            <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>{windAction}</Text>
-          </View>
         </Panel>
 
         <Panel
@@ -111,12 +117,7 @@ export const HomeScreen = () => {
           rightSlot={<MaterialCommunityIcons name="flash" size={24} color={palette.sky700} />}
         >
           <Text style={styles.metricValue}>{round(reading?.energyTodayKwh, 2)} kWh</Text>
-          <Text style={styles.infoText}>Equivale a cargar {equivalents.phones} celulares.</Text>
-          <Text style={styles.infoText}>Tambien alcanza para luces del campo por {equivalents.fieldLightsHours} horas.</Text>
-          <View style={styles.iconLine}>
-            <MaterialCommunityIcons name="calendar-clock-outline" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>Aprovecha entre 11:00 y 14:00 para cargas de mayor consumo.</Text>
-          </View>
+          <Text style={styles.infoText}>Energia disponible para luces del campo y bomba de agua.</Text>
         </Panel>
 
         <Panel
@@ -268,6 +269,29 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: "center",
     maxWidth: "90%",
+  },
+  alertList: {
+    width: "100%",
+    gap: 8,
+  },
+  alertItem: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: radius.md,
+    backgroundColor: "#F7FBFF",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  alertText: {
+    color: palette.text,
+    fontFamily: fonts.bodySemi,
+    fontSize: 13,
+    textAlign: "center",
   },
   row: {
     flexDirection: "row",

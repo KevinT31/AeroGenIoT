@@ -4,27 +4,27 @@
     "type": "tab",
     "label": "AeroGenIoT AE-01",
     "disabled": false,
-    "info": "Escenarios de prueba para aerogenerador. Usa botones para cambiar caso y el timer envia cada 5s."
+    "info": "Escenarios de prueba para aerogenerador. Usa botones para cambiar caso y el timer envia cada 2s."
   },
   {
     "id": "a3b0c9f1f9b00102",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "cada 5s",
+    "name": "cada 2s",
     "props": [
       {
         "p": "payload"
       }
     ],
-    "repeat": "5",
+    "repeat": "2",
     "crontab": "",
     "once": true,
     "onceDelay": "1",
     "topic": "",
     "payload": "",
     "payloadType": "date",
-    "x": 120,
-    "y": 260,
+    "x": 110,
+    "y": 280,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -35,7 +35,7 @@
     "id": "a3b0c9f1f9b00111",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: normal",
+    "name": "Escenario: Normal",
     "props": [
       {
         "p": "payload"
@@ -52,8 +52,37 @@
     "topic": "normal",
     "payload": "",
     "payloadType": "str",
-    "x": 130,
+    "x": 120,
     "y": 60,
+    "wires": [
+      [
+        "a3b0c9f1f9b00103"
+      ]
+    ]
+  },
+  {
+    "id": "a3b0c9f1f9b00118",
+    "type": "inject",
+    "z": "a3b0c9f1f9b00101",
+    "name": "Escenario: Poco Viento",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "poco_viento",
+    "payload": "",
+    "payloadType": "str",
+    "x": 145,
+    "y": 100,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -64,7 +93,7 @@
     "id": "a3b0c9f1f9b00112",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: wind_danger",
+    "name": "Escenario: Viento Peligroso",
     "props": [
       {
         "p": "payload"
@@ -78,11 +107,11 @@
     "crontab": "",
     "once": false,
     "onceDelay": "",
-    "topic": "wind_danger",
+    "topic": "viento_peligroso",
     "payload": "",
     "payloadType": "str",
-    "x": 150,
-    "y": 100,
+    "x": 165,
+    "y": 140,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -93,7 +122,7 @@
     "id": "a3b0c9f1f9b00113",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: temp_high",
+    "name": "Escenario: Temperatura Alta",
     "props": [
       {
         "p": "payload"
@@ -107,11 +136,11 @@
     "crontab": "",
     "once": false,
     "onceDelay": "",
-    "topic": "temp_high",
+    "topic": "temperatura_alta",
     "payload": "",
     "payloadType": "str",
-    "x": 145,
-    "y": 140,
+    "x": 170,
+    "y": 180,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -122,7 +151,7 @@
     "id": "a3b0c9f1f9b00114",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: vibration_high",
+    "name": "Escenario: Vibracion Alta",
     "props": [
       {
         "p": "payload"
@@ -136,11 +165,11 @@
     "crontab": "",
     "once": false,
     "onceDelay": "",
-    "topic": "vibration_high",
+    "topic": "vibracion_alta",
     "payload": "",
     "payloadType": "str",
-    "x": 155,
-    "y": 180,
+    "x": 160,
+    "y": 220,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -151,7 +180,7 @@
     "id": "a3b0c9f1f9b00115",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: battery_low",
+    "name": "Escenario: Bateria Baja",
     "props": [
       {
         "p": "payload"
@@ -165,11 +194,11 @@
     "crontab": "",
     "once": false,
     "onceDelay": "",
-    "topic": "battery_low",
+    "topic": "bateria_baja",
     "payload": "",
     "payloadType": "str",
-    "x": 145,
-    "y": 220,
+    "x": 155,
+    "y": 260,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -180,7 +209,7 @@
     "id": "a3b0c9f1f9b00116",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: both_source",
+    "name": "Escenario: Demanda Alta",
     "props": [
       {
         "p": "payload"
@@ -194,11 +223,11 @@
     "crontab": "",
     "once": false,
     "onceDelay": "",
-    "topic": "both_source",
+    "topic": "demanda_alta",
     "payload": "",
     "payloadType": "str",
-    "x": 150,
-    "y": 300,
+    "x": 155,
+    "y": 320,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -209,7 +238,7 @@
     "id": "a3b0c9f1f9b00117",
     "type": "inject",
     "z": "a3b0c9f1f9b00101",
-    "name": "Escenario: battery_source",
+    "name": "Escenario: Alerta Total",
     "props": [
       {
         "p": "payload"
@@ -223,11 +252,11 @@
     "crontab": "",
     "once": false,
     "onceDelay": "",
-    "topic": "battery_source",
+    "topic": "alerta_total",
     "payload": "",
     "payloadType": "str",
-    "x": 155,
-    "y": 340,
+    "x": 150,
+    "y": 360,
     "wires": [
       [
         "a3b0c9f1f9b00103"
@@ -239,15 +268,15 @@
     "type": "function",
     "z": "a3b0c9f1f9b00101",
     "name": "payload aerogenerador",
-    "func": "let scenario = flow.get(\"scenario\") || \"normal\";\n\nif (msg.topic) {\n  flow.set(\"scenario\", msg.topic);\n  node.status({ fill: \"blue\", shape: \"dot\", text: `escenario: ${msg.topic}` });\n  return null;\n}\n\nconst byScenario = {\n  normal: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 2.4, temp: 54, batt: 75, load: 320 },\n  wind_danger: { wind: 23, volt: 48.6, curr: 12.1, vib: 2.4, temp: 54, batt: 75, load: 320 },\n  temp_high: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 2.4, temp: 85, batt: 75, load: 320 },\n  vibration_high: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 7.0, temp: 54, batt: 75, load: 320 },\n  battery_low: { wind: 8.2, volt: 48.6, curr: 12.1, vib: 2.4, temp: 54, batt: 15, load: 320 },\n  both_source: { wind: 5.0, volt: 24.0, curr: 5.0, vib: 2.4, temp: 54, batt: 60, load: 350 },\n  battery_source: { wind: 1.0, volt: 0.0, curr: 0.0, vib: 2.4, temp: 54, batt: 60, load: 300 }\n};\n\nscenario = flow.get(\"scenario\") || scenario;\nconst base = byScenario[scenario] || byScenario.normal;\nconst jitter = (v, j) => Number((v + (Math.random() * 2 - 1) * j).toFixed(2));\nconst clamp = (v, min, max) => Math.max(min, Math.min(max, v));\n\nconst state = {\n  wind: clamp(jitter(base.wind, 0.2), 0, 30),\n  volt: clamp(jitter(base.volt, 0.2), 0, 90),\n  curr: clamp(jitter(base.curr, 0.4), 0, 120),\n  vib: clamp(jitter(base.vib, 0.1), 0, 15),\n  temp: clamp(jitter(base.temp, 0.2), -10, 120),\n  batt: clamp(jitter(base.batt, 0.2), 0, 100),\n  load: clamp(jitter(base.load, 4), 100, 3000)\n};\n\nmsg.headers = {\n  \"Content-Type\": \"application/json\",\n  \"x-api-key\": env.get(\"INGEST_API_KEY\") || \"dev-ingest-key\"\n};\n\nconst apiBase = (env.get(\"API_BASE\") || \"http://localhost:3000\").replace(/\\/+$/, \"\");\nmsg.url = `${apiBase}/api/v1/readings/ingest`;\n\nmsg.payload = {\n  deviceId: env.get(\"DEVICE_ID\") || \"AE-01\",\n  farmId: env.get(\"FARM_ID\") || \"FARM-01\",\n  plotId: env.get(\"PLOT_ID\") || \"PLOT-01\",\n  ts: new Date().toISOString(),\n  windSpeedMs: state.wind,\n  genVoltageV: state.volt,\n  genCurrentA: state.curr,\n  vibrationRms: state.vib,\n  genTempC: state.temp,\n  batteryPct: Math.round(state.batt),\n  loadPowerW: Math.round(state.load),\n  mode: `node-red:${scenario}`\n};\n\nnode.status({ fill: \"green\", shape: \"dot\", text: `enviando: ${scenario}` });\nreturn msg;",
+    "func": "let scenario = flow.get(\"scenario\") || \"normal\";\n\nif (msg.topic) {\n  flow.set(\"scenario\", msg.topic);\n  node.status({ fill: \"blue\", shape: \"dot\", text: \"escenario: \" + msg.topic });\n  return null;\n}\n\nconst byScenario = {\n  normal: { wind: 8.2, volt: 48.6, curr: 8.0, vib: 2.4, temp: 54, batt: 75, load: 520 },\n  poco_viento: { wind: 1.8, volt: 0.0, curr: 0.0, vib: 2.2, temp: 53, batt: 66, load: 340 },\n  viento_peligroso: { wind: 23.0, volt: 48.6, curr: 8.2, vib: 2.7, temp: 56, batt: 74, load: 560 },\n  temperatura_alta: { wind: 8.4, volt: 48.5, curr: 8.1, vib: 2.5, temp: 85, batt: 72, load: 540 },\n  vibracion_alta: { wind: 8.1, volt: 48.4, curr: 7.8, vib: 7.1, temp: 55, batt: 71, load: 530 },\n  bateria_baja: { wind: 7.9, volt: 48.3, curr: 7.7, vib: 2.6, temp: 54, batt: 15, load: 540 },\n  demanda_alta: { wind: 9.0, volt: 48.8, curr: 8.4, vib: 2.3, temp: 55, batt: 62, load: 900 },\n  alerta_total: { wind: 24.0, volt: 48.7, curr: 8.2, vib: 7.2, temp: 86, batt: 14, load: 600 }\n};\n\nscenario = flow.get(\"scenario\") || scenario;\nconst base = byScenario[scenario] || byScenario.normal;\nconst jitter = (v, j) => Number((v + (Math.random() * 2 - 1) * j).toFixed(2));\nconst clamp = (v, min, max) => Math.max(min, Math.min(max, v));\n\nconst jitterByScenario = scenario === \"poco_viento\" ? { wind: 0.1, volt: 0.04, curr: 0.05 } : { wind: 0.25, volt: 0.3, curr: 0.5 };\n\nconst state = {\n  wind: clamp(jitter(base.wind, jitterByScenario.wind), 0, 30),\n  volt: clamp(jitter(base.volt, jitterByScenario.volt), 0, 90),\n  curr: clamp(jitter(base.curr, jitterByScenario.curr), 0, 120),\n  vib: clamp(jitter(base.vib, 0.12), 0, 15),\n  temp: clamp(jitter(base.temp, 0.35), -10, 120),\n  batt: clamp(jitter(base.batt, 0.35), 0, 100),\n  load: clamp(jitter(base.load, 8), 100, 3000)\n};\n\nif (scenario === \"poco_viento\") {\n  state.volt = 0;\n  state.curr = 0;\n}\n\nmsg.headers = {\n  \"Content-Type\": \"application/json\",\n  \"x-api-key\": env.get(\"INGEST_API_KEY\") || \"dev-ingest-key\"\n};\n\nconst apiBase = (env.get(\"API_BASE\") || \"http://localhost:3000\").replace(/\\/+$/, \"\");\nmsg.url = apiBase + \"/api/v1/readings/ingest\";\n\nmsg.payload = {\n  deviceId: env.get(\"DEVICE_ID\") || \"AE-01\",\n  farmId: env.get(\"FARM_ID\") || \"FARM-01\",\n  plotId: env.get(\"PLOT_ID\") || \"PLOT-01\",\n  ts: new Date().toISOString(),\n  windSpeedMs: state.wind,\n  genVoltageV: state.volt,\n  genCurrentA: state.curr,\n  vibrationRms: state.vib,\n  genTempC: state.temp,\n  batteryPct: Math.round(state.batt),\n  loadPowerW: Math.round(state.load),\n  mode: \"node-red:\" + scenario\n};\n\nnode.status({ fill: \"green\", shape: \"dot\", text: \"enviando: \" + scenario });\nreturn msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
-    "x": 390,
-    "y": 260,
+    "x": 420,
+    "y": 280,
     "wires": [
       [
         "a3b0c9f1f9b00104",
@@ -271,8 +300,8 @@
     "authType": "",
     "senderr": false,
     "headers": [],
-    "x": 610,
-    "y": 260,
+    "x": 650,
+    "y": 280,
     "wires": [
       [
         "a3b0c9f1f9b00105"
@@ -292,8 +321,8 @@
     "targetType": "msg",
     "statusVal": "",
     "statusType": "auto",
-    "x": 810,
-    "y": 260,
+    "x": 850,
+    "y": 280,
     "wires": []
   },
   {
@@ -309,8 +338,8 @@
     "targetType": "msg",
     "statusVal": "",
     "statusType": "auto",
-    "x": 620,
-    "y": 320,
+    "x": 650,
+    "y": 340,
     "wires": []
   }
 ]

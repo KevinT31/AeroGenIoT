@@ -79,10 +79,6 @@ export const TechnicalScreen = () => {
           <View style={styles.tagRow}>
             <StatusTag level={vibration.level} text={`Vibracion: ${vibration.label}`} />
           </View>
-          <View style={styles.techHintRow}>
-            <MaterialCommunityIcons name="information-outline" size={16} color={palette.textSoft} />
-            <Text style={styles.techHintText}>Regla base: si powerW es menor que loadPowerW, entra apoyo de bateria.</Text>
-          </View>
         </Panel>
       </ScrollView>
     </SafeAreaView>
@@ -174,21 +170,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     alignItems: "center",
     width: "100%",
-  },
-  techHintRow: {
-    marginTop: spacing.sm,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    gap: 6,
-    width: "100%",
-  },
-  techHintText: {
-    color: palette.textSoft,
-    fontFamily: fonts.bodySemi,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
-    maxWidth: "92%",
   },
 });
