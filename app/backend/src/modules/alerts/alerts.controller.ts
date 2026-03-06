@@ -18,7 +18,6 @@ export class AlertsController {
   }
 
   @Post(":alertId/ack")
-  @UseGuards(JwtAuthGuard)
   ack(@Param("alertId") alertId: string) {
     return this.alerts.ack(alertId);
   }

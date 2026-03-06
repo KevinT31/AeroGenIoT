@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { ENV } from "../config/env";
-import { fetchLatestReading, fetchRecentAlerts, hasApiBase } from "../services/api";
+import { ackAlert, fetchLatestReading, fetchRecentAlerts, hasApiBase } from "../services/api";
 import { AlertItem, LatestReading } from "../types/aerogen";
 import { sortAlertsByDate } from "../utils/format";
 
@@ -13,7 +13,7 @@ type AeroContextShape = {
   isConnectedRealtime: boolean;
   lastSyncAt: Date | null;
   ackedAlerts: Record<string, true>;
-  markAlertReceived: (alertId: string) => void;
+  markAlertReceived: (alertId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -28,6 +28,7 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [ackedAlerts, setAckedAlerts] = useState<Record<string, true>>({});
   const socketRef = useRef<Socket | null>(null);
+  const initialAlertsClearedRef = useRef(false);
 
   const deviceId = ENV.deviceId;
   const apiBase = ENV.apiBase;
@@ -48,8 +49,18 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       const [latest, recentAlerts] = await Promise.all([fetchLatestReading(deviceId), fetchRecentAlerts(deviceId)]);
+      const openAlerts = recentAlerts.filter((alert) => alert.status === "open");
+
+      if (!initialAlertsClearedRef.current && openAlerts.length) {
+        await Promise.all(openAlerts.map((alert) => ackAlert(alert.id).catch(() => null)));
+      }
+
+      const effectiveAlerts =
+        !initialAlertsClearedRef.current && openAlerts.length ? await fetchRecentAlerts(deviceId) : recentAlerts;
+
+      initialAlertsClearedRef.current = true;
       setReading(latest);
-      setAlerts(sortAlertsByDate(recentAlerts));
+      setAlerts(sortAlertsByDate(effectiveAlerts));
       setApiReachable(true);
       setLastSyncAt(new Date());
     } catch {
@@ -115,9 +126,17 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [apiBase, deviceId, mergeAlert]);
 
-  const markAlertReceived = useCallback((alertId: string) => {
+  const markAlertReceived = useCallback(async (alertId: string) => {
+    try {
+      const updated = await ackAlert(alertId);
+      if (updated) {
+        mergeAlert(updated);
+      }
+    } catch {
+      // Keep local acknowledgement for offline/failure cases.
+    }
     setAckedAlerts((prev) => ({ ...prev, [alertId]: true }));
-  }, []);
+  }, [mergeAlert]);
 
   const value = useMemo<AeroContextShape>(
     () => ({

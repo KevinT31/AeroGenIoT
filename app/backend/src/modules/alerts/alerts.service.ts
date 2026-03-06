@@ -670,7 +670,7 @@ export class AlertsService {
         deviceId,
         type: type as any,
         message,
-        status: { in: ["open", "acknowledged"] },
+        status: "open",
       },
       select: { id: true },
     });

@@ -110,7 +110,7 @@ export const AlertsScreen = () => {
               </View>
 
               <View style={styles.actions}>
-                <Pressable onPress={() => markAlertReceived(alert.id)} style={[styles.button, styles.primaryBtn]}>
+                <Pressable onPress={() => void markAlertReceived(alert.id)} style={[styles.button, styles.primaryBtn]}>
                   <Text style={styles.primaryBtnText}>Marcar recibido</Text>
                 </Pressable>
                 <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>

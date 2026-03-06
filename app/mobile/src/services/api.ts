@@ -26,3 +26,9 @@ export const fetchRecentAlerts = async (deviceId: string): Promise<AlertItem[]> 
   });
   return Array.isArray(response.data) ? response.data : [];
 };
+
+export const ackAlert = async (alertId: string): Promise<AlertItem | null> => {
+  if (!hasApiBase) return null;
+  const response = await client.post<AlertItem>(`/alerts/${alertId}/ack`);
+  return response.data || null;
+};
