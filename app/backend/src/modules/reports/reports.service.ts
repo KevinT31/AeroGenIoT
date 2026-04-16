@@ -23,8 +23,8 @@ type ReportCreateInput = {
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  list(userId: string, filters: { parcelId?: string; cropId?: string; status?: string }) {
-    return this.prisma.report.findMany({
+  async list(userId: string, filters: { parcelId?: string; cropId?: string; status?: string }) {
+    const reports = await this.prisma.report.findMany({
       where: {
         userId,
         ...(filters.parcelId ? { parcelId: filters.parcelId } : {}),
@@ -39,10 +39,12 @@ export class ReportsService {
         zone: true,
       },
     });
+
+    return reports.map((report) => this.normalizeReport(report));
   }
 
-  get(userId: string, reportId: string) {
-    return this.prisma.report.findFirst({
+  async get(userId: string, reportId: string) {
+    const report = await this.prisma.report.findFirst({
       where: { id: reportId, userId },
       include: {
         parcel: true,
@@ -52,6 +54,8 @@ export class ReportsService {
         messages: { orderBy: { createdAt: "asc" } },
       },
     });
+
+    return report ? this.normalizeReport(report) : null;
   }
 
   async feedback(userId: string, reportId: string, value: string) {
@@ -113,5 +117,20 @@ export class ReportsService {
         version: { increment: 1 },
       },
     });
+  }
+
+  private normalizeReport<T extends Record<string, any>>(report: T) {
+    return {
+      ...report,
+      actions: this.toStringArray(report.actions),
+      prevention: this.toStringArray(report.prevention),
+      doNotDo: this.toStringArray(report.doNotDo),
+      redFlags: this.toStringArray(report.redFlags),
+    };
+  }
+
+  private toStringArray(value: unknown) {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === "string");
   }
 }

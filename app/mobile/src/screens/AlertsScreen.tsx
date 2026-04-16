@@ -1,219 +1,218 @@
-import React from "react";
-import { LinearGradient } from "expo-linear-gradient";
+import React, { useMemo, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ENV } from "../config/env";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { HeroBanner } from "../components/HeroBanner";
+import { MetricCard } from "../components/MetricCard";
 import { Panel } from "../components/Panel";
+import { ScreenLayout } from "../components/ScreenLayout";
 import { StatusTag } from "../components/StatusTag";
+import { useI18n } from "../i18n/LanguageContext";
+import { deviceStatusService } from "../services/deviceStatusService";
+import { supportService } from "../services/supportService";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
 import { sortAlertsByDate, timeAgo } from "../utils/format";
-import { useI18n } from "../i18n/LanguageContext";
+
+const iconByType: Record<string, string> = {
+  battery_critical: "battery-alert-variant-outline",
+  battery_overtemperature: "battery-heart-variant",
+  system_overload: "transmission-tower-export",
+  supply_cut: "power-plug-off-outline",
+  inverter_fault: "alert-octagon-outline",
+  low_wind: "weather-windy-variant",
+  high_wind: "weather-windy",
+  rotor_rpm_high: "rotate-3d-variant",
+  inverter_temp_high: "thermometer-high",
+  vibration_high: "vibrate",
+  battery_low: "battery-alert",
+};
 
 export const AlertsScreen = () => {
-  const { alerts, ackedAlerts, markAlertReceived } = useAero();
+  const { alerts, pendingAlerts, markAlertReceived } = useAero();
   const { language, t } = useI18n();
-  const tabBarHeight = useBottomTabBarHeight();
-  const insets = useSafeAreaInsets();
-  const sorted = sortAlertsByDate(alerts);
-  const pendingAlerts = sorted.filter((alert) => alert.status === "open" && !ackedAlerts[alert.id]);
-  const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
-
-  const alertMeta: Record<string, { icon: string; level: "ok" | "warn" | "stop"; title: string }> = {
-    wind_danger: { icon: "weather-windy", level: "stop", title: t("alerts.type.wind_danger") },
-    generator_temp_high: { icon: "thermometer-high", level: "stop", title: t("alerts.type.generator_temp_high") },
-    vibration_high: { icon: "vibrate", level: "warn", title: t("alerts.type.vibration_high") },
-    battery_low: { icon: "battery-alert", level: "warn", title: t("alerts.type.battery_low") },
-  };
-
-  const actionByAlertType: Record<string, { icon: string; text: string }> = {
-    wind_danger: {
-      icon: "pause-circle-outline",
-      text: t("alerts.action.wind_danger"),
-    },
-    generator_temp_high: {
-      icon: "thermometer-low",
-      text: t("alerts.action.generator_temp_high"),
-    },
-    vibration_high: {
-      icon: "wrench-outline",
-      text: t("alerts.action.vibration_high"),
-    },
-    battery_low: {
-      icon: "battery-charging-low",
-      text: t("alerts.action.battery_low"),
-    },
-  };
-
-  const messageByAlertType: Record<string, string> = {
-    wind_danger: t("alerts.message.wind_danger"),
-    generator_temp_high: t("alerts.message.generator_temp_high"),
-    vibration_high: t("alerts.message.vibration_high"),
-    battery_low: t("alerts.message.battery_low"),
-  };
+  const [workingAlertId, setWorkingAlertId] = useState<string | null>(null);
+  const sortedAlerts = useMemo(() => sortAlertsByDate(alerts), [alerts]);
+  const recentHandled = sortedAlerts.filter((alert) => alert.status !== "open").slice(0, 3);
+  const criticalCount = pendingAlerts.filter((alert) => alert.severity === "stop").length;
+  const warningCount = pendingAlerts.filter((alert) => alert.severity === "warn").length;
 
   const callSupport = async () => {
-    const url = `tel:${ENV.supportPhone.replace(/[^\d+]/g, "")}`;
     try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (!canOpen) {
-        Alert.alert(t("alerts.support.title"), t("alerts.support.error", { phone: ENV.supportPhone }));
-        return;
+      const result = await supportService.callPrimaryContact();
+      if (!result.ok) {
+        Alert.alert(t("alerts.support.title"), t("alerts.support.error", { phone: result.contact.displayPhone }));
       }
-      await Linking.openURL(url);
     } catch {
-      Alert.alert(t("alerts.support.title"), t("alerts.support.error", { phone: ENV.supportPhone }));
+      const contact = supportService.getPrimaryContact();
+      Alert.alert(t("alerts.support.title"), t("alerts.support.error", { phone: contact.displayPhone }));
+    }
+  };
+
+  const handleReceived = async (alertId: string) => {
+    setWorkingAlertId(alertId);
+    const success = await markAlertReceived(alertId);
+    setWorkingAlertId(null);
+    if (!success) {
+      Alert.alert(t("alerts.support.title"), t("alerts.received.error"));
     }
   };
 
   return (
-    <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
-      <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}>
-        <LinearGradient colors={["#0EA5E9", "#38BDF8"]} style={styles.hero}>
-          <View style={styles.heroIconWrap}>
-            <MaterialCommunityIcons name="bell-alert" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.heroTitle}>{t("alerts.hero.title")}</Text>
-          <Text style={styles.heroSub}>{t("alerts.hero.subtitle")}</Text>
-        </LinearGradient>
+    <ScreenLayout>
+      <HeroBanner icon="bell-alert" title={t("alerts.hero.title")} colors={["#0B6E99", "#1BA3D2"]} />
 
-        {!pendingAlerts.length ? (
+      <View style={styles.metricGrid}>
+        <MetricCard
+          icon="alert-octagon-outline"
+          title={t("alerts.hero.pendingCount")}
+          value={String(pendingAlerts.length)}
+          helper={pendingAlerts.length ? t("alerts.hero.pendingMessage") : t("alerts.none.subtitle")}
+          tone={pendingAlerts.length ? "warn" : "good"}
+        />
+        <MetricCard
+          icon="shield-alert-outline"
+          title={t("alerts.hero.priorityCount")}
+          value={String(criticalCount + warningCount)}
+          helper={t("alerts.hero.priorityMessage")}
+          tone={criticalCount ? "danger" : warningCount ? "warn" : "good"}
+        />
+      </View>
+
+      {!pendingAlerts.length ? (
+        <Panel
+          title={t("alerts.none.title")}
+          subtitle={t("alerts.none.subtitle")}
+          align="center"
+          centerHeaderText
+          rightSlot={<MaterialCommunityIcons name="check-decagram-outline" size={22} color={palette.good} />}
+        >
+          <Text style={styles.centerText}>{t("alerts.none.text")}</Text>
+          <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn, styles.singleButton]}>
+            <Text style={styles.secondaryBtnText}>{t("alerts.button.support")}</Text>
+          </Pressable>
+        </Panel>
+      ) : null}
+
+      {pendingAlerts.map((alert) => {
+        const presentation = deviceStatusService.getAlertPresentation(alert, language);
+        const iconName = iconByType[alert.type] || "alert-circle-outline";
+        const isBusy = workingAlertId === alert.id;
+
+        return (
           <Panel
-            title={t("alerts.none.title")}
-            subtitle={t("alerts.none.subtitle")}
-            rightSlot={<MaterialCommunityIcons name="check-decagram-outline" size={24} color={palette.good} />}
+            key={alert.id}
+            title={presentation.title}
+            rightSlot={<MaterialCommunityIcons name={iconName as any} size={22} color={palette.sky700} />}
+            tone="soft"
           >
-            <Text style={styles.emptyText}>{t("alerts.none.text")}</Text>
+            <View style={styles.alertHeaderRow}>
+              <StatusTag level={presentation.severity} text={presentation.severity === "stop" ? t("alerts.tag.high") : t("alerts.tag.medium")} />
+              <Text style={styles.detectedText}>{t("alerts.card.detected", { time: timeAgo(alert.createdAt, language) })}</Text>
+            </View>
+            <Text style={styles.alertMessage}>{alert.message || presentation.message}</Text>
+
+            <View style={styles.noteBox}>
+              <MaterialCommunityIcons name="lightbulb-outline" size={16} color={palette.textSoft} />
+              <Text style={styles.noteText}>
+                <Text style={styles.noteLabel}>{t("alerts.card.recommendation")} </Text>
+                {presentation.action}
+              </Text>
+            </View>
+
+            <View style={styles.actions}>
+              <Pressable
+                onPress={() => void handleReceived(alert.id)}
+                style={[styles.button, styles.primaryBtn, isBusy ? styles.buttonDisabled : null]}
+                disabled={isBusy}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {isBusy ? t("alerts.button.receiving") : t("alerts.button.received")}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>
+                <Text style={styles.secondaryBtnText}>{t("alerts.button.support")}</Text>
+              </Pressable>
+            </View>
           </Panel>
-        ) : null}
+        );
+      })}
 
-        {pendingAlerts.map((alert) => {
-          const meta = alertMeta[alert.type] || {
-            icon: "alert-circle-outline",
-            level: "warn" as const,
-            title: t("common.systemEvent"),
-          };
-          const action = actionByAlertType[alert.type] || {
-            icon: "information-outline",
-            text: t("alerts.action.default"),
-          };
-          const alertMessage = messageByAlertType[alert.type] || alert.message;
-
-          return (
-            <Panel
-              key={alert.id}
-              title={meta.title}
-              subtitle={timeAgo(alert.createdAt, language)}
-              rightSlot={<MaterialCommunityIcons name={meta.icon as any} size={24} color={palette.sky700} />}
-            >
-              <Text style={styles.message}>{alertMessage}</Text>
-              <View style={styles.metaRow}>
-                <StatusTag level={meta.level} text={t("common.pending")} />
-                <Text style={styles.smallText}>{timeAgo(alert.createdAt, language)}</Text>
+      {recentHandled.length ? (
+        <Panel
+          title={t("alerts.section.recent")}
+          subtitle={t("alerts.section.recentSubtitle")}
+          centerHeaderText
+          rightSlot={<MaterialCommunityIcons name="history" size={22} color={palette.sky700} />}
+        >
+          <View style={styles.recentList}>
+            {recentHandled.map((alert) => (
+              <View key={alert.id} style={styles.recentRow}>
+                <MaterialCommunityIcons name="check-circle-outline" size={16} color={palette.good} />
+                <Text style={styles.recentText}>
+                  {deviceStatusService.getAlertPresentation(alert, language).title}
+                </Text>
+                <Text style={styles.recentTime}>{timeAgo(alert.updatedAt, language)}</Text>
               </View>
-
-              <View style={styles.actionNote}>
-                <MaterialCommunityIcons name={action.icon as any} size={16} color={palette.textSoft} />
-                <Text style={styles.actionText}>{action.text}</Text>
-              </View>
-
-              <View style={styles.actions}>
-                <Pressable onPress={() => void markAlertReceived(alert.id)} style={[styles.button, styles.primaryBtn]}>
-                  <Text style={styles.primaryBtnText}>{t("alerts.button.received")}</Text>
-                </Pressable>
-                <Pressable onPress={() => void callSupport()} style={[styles.button, styles.secondaryBtn]}>
-                  <Text style={styles.secondaryBtnText}>{t("alerts.button.support")}</Text>
-                </Pressable>
-              </View>
-            </Panel>
-          );
-        })}
-      </ScrollView>
-    </SafeAreaView>
+            ))}
+          </View>
+        </Panel>
+      ) : null}
+    </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingTop: spacing.md,
+  metricGrid: {
+    flexDirection: "row",
     gap: spacing.md,
   },
-  hero: {
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: "#77D6FF",
-    alignItems: "center",
-    gap: 6,
-    shadowColor: "#0E7EA8",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
-  },
-  heroIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.22)",
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontFamily: fonts.title,
-    fontSize: 22,
-    textAlign: "center",
-  },
-  heroSub: {
-    color: "#EAF8FF",
-    fontFamily: fonts.body,
-    textAlign: "center",
-  },
-  emptyText: {
+  centerText: {
     color: palette.textSoft,
     fontFamily: fonts.body,
     textAlign: "center",
+    lineHeight: 20,
   },
-  message: {
+  alertHeaderRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  detectedText: {
+    flex: 1,
+    color: palette.textMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: "right",
+  },
+  alertMessage: {
+    marginTop: spacing.md,
     color: palette.text,
     fontFamily: fonts.bodySemi,
     lineHeight: 22,
-    textAlign: "center",
   },
-  smallText: {
-    color: palette.textSoft,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    textAlign: "center",
-  },
-  metaRow: {
-    marginTop: spacing.sm,
-    gap: 8,
-    alignItems: "center",
-  },
-  actionNote: {
-    marginTop: spacing.sm,
+  noteBox: {
+    marginTop: spacing.md,
+    width: "100%",
+    borderRadius: radius.md,
+    backgroundColor: "#F5FAFD",
+    borderWidth: 1,
+    borderColor: palette.line,
+    padding: spacing.sm,
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "center",
-    gap: 6,
-    width: "100%",
+    gap: 8,
   },
-  actionText: {
+  noteText: {
+    flex: 1,
     color: palette.textSoft,
-    fontFamily: fonts.bodySemi,
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 18,
-    maxWidth: "92%",
+    fontFamily: fonts.body,
+    lineHeight: 19,
+  },
+  noteLabel: {
+    color: palette.text,
+    fontFamily: fonts.bodyBold,
   },
   actions: {
     marginTop: spacing.md,
@@ -223,10 +222,15 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 11,
+    borderRadius: radius.md,
+    paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  singleButton: {
+    marginTop: spacing.md,
+    minWidth: 180,
+    flex: 0,
   },
   primaryBtn: {
     backgroundColor: palette.sky700,
@@ -235,18 +239,45 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontFamily: fonts.bodyBold,
     fontSize: 13,
-    textAlign: "center",
   },
   secondaryBtn: {
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: "#FFFFFF",
   },
   secondaryBtnText: {
     color: palette.text,
     fontFamily: fonts.bodySemi,
     fontSize: 13,
-    textAlign: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  recentList: {
+    width: "100%",
+    gap: spacing.sm,
+  },
+  recentRow: {
+    width: "100%",
+    borderRadius: radius.md,
+    backgroundColor: palette.cardSoft,
+    borderWidth: 1,
+    borderColor: palette.line,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  recentText: {
+    flex: 1,
+    color: palette.text,
+    fontFamily: fonts.bodySemi,
+    fontSize: 13,
+  },
+  recentTime: {
+    color: palette.textMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
   },
 });
-

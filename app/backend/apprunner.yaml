@@ -26,6 +26,8 @@ run:
       value: "false"
     - name: PRISMA_EAGER_CONNECT
       value: "false"
+    - name: PRISMA_DB_SYNC_MODE
+      value: "push"
     - name: AUDIT_LOG
       value: "false"
     - name: WS_AUTH_REQUIRED

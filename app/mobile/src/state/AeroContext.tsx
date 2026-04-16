@@ -1,156 +1,217 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ENV } from "../config/env";
-import { ackAlert, fetchLatestReading, fetchRecentAlerts, hasApiBase } from "../services/api";
-import { AlertItem, LatestReading } from "../types/aerogen";
+import { aiService } from "../services/aiService";
+import { alertsService } from "../services/alertsService";
+import { deviceStatusService } from "../services/deviceStatusService";
+import { realtimeService } from "../services/realtimeService";
+import { telemetryService } from "../services/telemetryService";
+import { AlertItem, DataMode, OperationalAiSnapshot, SyncState, TelemetryReading } from "../types/aerogen";
 import { sortAlertsByDate } from "../utils/format";
 
 type AeroContextShape = {
-  reading: LatestReading | null;
+  reading: TelemetryReading | null;
+  aiOperational: OperationalAiSnapshot | null;
   alerts: AlertItem[];
+  pendingAlerts: AlertItem[];
   loading: boolean;
-  apiReachable: boolean;
+  refreshing: boolean;
+  syncState: SyncState;
+  hasData: boolean;
+  dataMode: DataMode;
   isConnectedRealtime: boolean;
+  isRealtimeEnabled: boolean;
   lastSyncAt: Date | null;
-  ackedAlerts: Record<string, true>;
-  markAlertReceived: (alertId: string) => Promise<void>;
+  lastError: string | null;
   refresh: () => Promise<void>;
+  markAlertReceived: (alertId: string) => Promise<boolean>;
 };
 
 const AeroContext = createContext<AeroContextShape | null>(null);
 
+const extractErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) return error.message;
+  return "Unknown error";
+};
+
+const mergeAlertItem = (prev: AlertItem[], incoming: AlertItem) => {
+  const merged = [incoming, ...prev.filter((item) => item.id !== incoming.id)];
+  return sortAlertsByDate(merged).slice(0, 100);
+};
+
 export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
-  const [reading, setReading] = useState<LatestReading | null>(null);
+  const [reading, setReading] = useState<TelemetryReading | null>(null);
+  const [aiOperational, setAiOperational] = useState<OperationalAiSnapshot | null>(null);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [apiReachable, setApiReachable] = useState<boolean>(true);
-  const [isConnectedRealtime, setIsConnectedRealtime] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
-  const [ackedAlerts, setAckedAlerts] = useState<Record<string, true>>({});
-  const socketRef = useRef<Socket | null>(null);
-  const initialAlertsClearedRef = useRef(false);
+  const [isConnectedRealtime, setIsConnectedRealtime] = useState<boolean>(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState<boolean>(false);
+  const [lastFetchFailed, setLastFetchFailed] = useState<boolean>(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const deviceId = ENV.deviceId;
-  const apiBase = ENV.apiBase;
+  const dataMode: DataMode = ENV.useMockData ? "mock" : "live";
 
-  const mergeAlert = useCallback((incoming: AlertItem) => {
-    setAlerts((prev) => {
-      const merged = [incoming, ...prev.filter((item) => item.id !== incoming.id)];
-      return sortAlertsByDate(merged).slice(0, 100);
-    });
+  const updateLastSync = useCallback(() => {
+    setLastSyncAt(new Date());
+    setLastFetchFailed(false);
+    setLastError(null);
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!hasApiBase) {
-      setApiReachable(false);
-      setLoading(false);
-      return;
-    }
+  const mergeAlert = useCallback((incoming: AlertItem) => {
+    setAlerts((prev) => mergeAlertItem(prev, incoming));
+  }, []);
 
-    try {
-      const [latest, recentAlerts] = await Promise.all([fetchLatestReading(deviceId), fetchRecentAlerts(deviceId)]);
-      const openAlerts = recentAlerts.filter((alert) => alert.status === "open");
+  const loadSnapshot = useCallback(
+    async (mode: "initial" | "manual" | "poll") => {
+      if (mode === "initial") setLoading(true);
+      if (mode === "manual") setRefreshing(true);
 
-      if (!initialAlertsClearedRef.current && openAlerts.length) {
-        await Promise.all(openAlerts.map((alert) => ackAlert(alert.id).catch(() => null)));
+      try {
+        const [latest, recentAlerts] = await Promise.all([
+          telemetryService.getLatest(deviceId),
+          alertsService.listRecent(deviceId),
+        ]);
+        const operationalAi = await aiService.getOperational(deviceId, latest, {
+          force: mode !== "poll",
+        });
+
+        setReading(latest);
+        setAiOperational(operationalAi);
+        setAlerts(sortAlertsByDate(recentAlerts).slice(0, 100));
+        updateLastSync();
+      } catch (error) {
+        setLastFetchFailed(true);
+        setLastError(extractErrorMessage(error));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setHasLoadedOnce(true);
       }
-
-      const effectiveAlerts =
-        !initialAlertsClearedRef.current && openAlerts.length ? await fetchRecentAlerts(deviceId) : recentAlerts;
-
-      initialAlertsClearedRef.current = true;
-      setReading(latest);
-      setAlerts(sortAlertsByDate(effectiveAlerts));
-      setApiReachable(true);
-      setLastSyncAt(new Date());
-    } catch {
-      setApiReachable(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [deviceId]);
+    },
+    [deviceId, updateLastSync],
+  );
 
   useEffect(() => {
-    void refresh();
+    void loadSnapshot("initial");
     const timer = setInterval(() => {
-      void refresh();
+      void loadSnapshot("poll");
     }, ENV.pollMs);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [loadSnapshot]);
 
   useEffect(() => {
-    if (!apiBase) return;
-
-    const socket = io(`${apiBase}/realtime`, {
-      transports: ["websocket"],
-      timeout: 12000,
-      reconnection: true,
-    });
-
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      setIsConnectedRealtime(true);
-      socket.emit("subscribe", { deviceId });
-    });
-
-    socket.on("disconnect", () => {
-      setIsConnectedRealtime(false);
-    });
-
-    socket.on("reading.new", (payload: LatestReading) => {
-      if (!payload || payload.deviceId !== deviceId) return;
-      setReading(payload);
-      setLastSyncAt(new Date());
-      setApiReachable(true);
-    });
-
-    socket.on("alert.new", (payload: AlertItem) => {
-      if (!payload || payload.deviceId !== deviceId) return;
-      mergeAlert(payload);
-      setLastSyncAt(new Date());
-      setApiReachable(true);
-    });
-
-    socket.on("alert.updated", (payload: AlertItem) => {
-      if (!payload || payload.deviceId !== deviceId) return;
-      mergeAlert(payload);
-      setLastSyncAt(new Date());
-      setApiReachable(true);
+    const subscription = realtimeService.connect({
+      deviceId,
+      onConnectionChange: setIsConnectedRealtime,
+      onReading: (incoming) => {
+        setReading(incoming);
+        updateLastSync();
+      },
+      onAlert: (incoming) => {
+        mergeAlert(incoming);
+        updateLastSync();
+      },
+      onAlertUpdate: (incoming) => {
+        mergeAlert(incoming);
+        updateLastSync();
+      },
     });
 
     return () => {
-      socket.removeAllListeners();
-      socket.disconnect();
-      socketRef.current = null;
+      subscription.disconnect();
     };
-  }, [apiBase, deviceId, mergeAlert]);
+  }, [deviceId, mergeAlert, updateLastSync]);
+
+  const refresh = useCallback(async () => {
+    await loadSnapshot("manual");
+  }, [loadSnapshot]);
 
   const markAlertReceived = useCallback(async (alertId: string) => {
-    try {
-      const updated = await ackAlert(alertId);
-      if (updated) {
-        mergeAlert(updated);
-      }
-    } catch {
-      // Keep local acknowledgement for offline/failure cases.
+    if (alertId.startsWith("telemetry:")) {
+      setAlerts((prev) =>
+        sortAlertsByDate(
+          prev.map((alert) =>
+            alert.id === alertId
+              ? {
+                  ...alert,
+                  status: "acknowledged",
+                  updatedAt: new Date().toISOString(),
+                }
+              : alert,
+          ),
+        ),
+      );
+      return true;
     }
-    setAckedAlerts((prev) => ({ ...prev, [alertId]: true }));
+
+    try {
+      const updated = await alertsService.acknowledge(alertId);
+      if (!updated) return false;
+      mergeAlert(updated);
+      return true;
+    } catch (error) {
+      setLastError(extractErrorMessage(error));
+      return false;
+    }
   }, [mergeAlert]);
+
+  const pendingAlerts = useMemo(
+    () => alerts.filter((alert) => alert.status === "open"),
+    [alerts],
+  );
+
+  const hasData = Boolean(reading || alerts.length || aiOperational);
+
+  const syncState = useMemo(
+    () =>
+      deviceStatusService.resolveSyncState({
+        apiConfigured: ENV.hasRemoteApi,
+        useMockData: ENV.useMockData,
+        hasLoadedOnce,
+        hasData,
+        reading,
+        lastFetchFailed,
+        staleAfterMs: ENV.staleAfterMs,
+      }),
+    [hasData, hasLoadedOnce, lastFetchFailed, reading],
+  );
 
   const value = useMemo<AeroContextShape>(
     () => ({
       reading,
+      aiOperational,
       alerts,
+      pendingAlerts,
       loading,
-      apiReachable,
+      refreshing,
+      syncState,
+      hasData,
+      dataMode,
       isConnectedRealtime,
+      isRealtimeEnabled: ENV.realtimeEnabled,
       lastSyncAt,
-      ackedAlerts,
-      markAlertReceived,
+      lastError,
       refresh,
+      markAlertReceived,
     }),
-    [reading, alerts, loading, apiReachable, isConnectedRealtime, lastSyncAt, ackedAlerts, markAlertReceived, refresh],
+    [
+      alerts,
+      aiOperational,
+      dataMode,
+      hasData,
+      isConnectedRealtime,
+      lastError,
+      lastSyncAt,
+      loading,
+      markAlertReceived,
+      pendingAlerts,
+      reading,
+      refresh,
+      refreshing,
+      syncState,
+    ],
   );
 
   return <AeroContext.Provider value={value}>{children}</AeroContext.Provider>;

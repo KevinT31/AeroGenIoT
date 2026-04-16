@@ -8,16 +8,16 @@ type StatusTagProps = {
   text: string;
 };
 
-const colorByLevel: Record<SystemLevel, string> = {
-  ok: palette.good,
-  warn: palette.warn,
-  stop: palette.danger,
+const colorByLevel: Record<SystemLevel, { color: string; background: string }> = {
+  ok: { color: palette.good, background: "#EFFAF4" },
+  warn: { color: palette.warn, background: "#FFF7E7" },
+  stop: { color: palette.danger, background: "#FFF0F0" },
 };
 
 export const StatusTag = ({ level, text }: StatusTagProps) => (
-  <View style={[styles.wrap, { borderColor: colorByLevel[level] }]}>
-    <View style={[styles.dot, { backgroundColor: colorByLevel[level] }]} />
-    <Text style={[styles.text, { color: colorByLevel[level] }]}>{text}</Text>
+  <View style={[styles.wrap, { borderColor: colorByLevel[level].color, backgroundColor: colorByLevel[level].background }]}>
+    <View style={[styles.dot, { backgroundColor: colorByLevel[level].color }]} />
+    <Text style={[styles.text, { color: colorByLevel[level].color }]}>{text}</Text>
   </View>
 );
 
@@ -26,12 +26,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 7,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#FFFFFF",
   },
   dot: {
     width: 7,

@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
+    "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma db push",
     "prisma:seed": "ts-node prisma/seed.ts",
     "mock": "ts-node src/mock/server.ts",
     "simulate:ae01": "node ../../tools/simulate-ae01.mjs"

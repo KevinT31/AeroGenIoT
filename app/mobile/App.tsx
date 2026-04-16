@@ -26,7 +26,7 @@ export default function App() {
     if (Platform.OS !== "android") return;
     const applyAndroidNavigationBar = async () => {
       try {
-        await NavigationBar.setBackgroundColorAsync("#EEF2F5");
+        await NavigationBar.setBackgroundColorAsync(palette.background);
         await NavigationBar.setButtonStyleAsync("dark");
       } catch {
         // Ignore devices/ROMs that do not allow navigation bar style changes.

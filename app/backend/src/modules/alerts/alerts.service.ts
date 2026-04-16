@@ -3,6 +3,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { mockAlerts } from "../../mock/data";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
+import { TelemetryTableService } from "../readings/telemetry-table.service";
 
 type ThresholdSet = {
   humidityMin: number;
@@ -42,17 +43,35 @@ type AerogeneratorAlertInput = {
   deviceId: string;
   farmId: string;
   plotId?: string | null;
+  batterySocPct: number;
+  batteryVoltageDcV: number;
+  batteryCurrentDcA: number;
+  inverterOutputVoltageAcV: number;
+  inverterOutputCurrentAcA: number;
+  housePowerConsumptionW: number;
+  inverterTempC: number;
   windSpeedMs: number;
-  genTempC: number;
-  vibrationRms: number;
-  batteryPct: number;
+  motorVibration: number;
+  bladeRpm: number;
+  batteryAlertLow: boolean | null;
+  batteryAlertOverload: boolean | null;
+  batteryAlertOvertemp: boolean | null;
+  inverterAlertOverload: boolean | null;
+  inverterAlertFault: boolean | null;
+  inverterAlertSupplyCut: boolean | null;
 };
 
 const AEROGEN_MESSAGES = {
   windDanger: "Viento peligroso detectado: se detuvo por seguridad.",
-  tempHigh: "Temperatura alta detectada: se detuvo temporalmente para enfriarse.",
+  tempHigh: "Temperatura alta del inversor: revisar ventilacion y carga.",
   vibrationHigh: "Vibracion alta detectada: se recomienda revisar posteriormente aspas/soportes.",
   batteryLow: "Bateria baja detectada: reducir consumo ~10%.",
+  batteryOverload: "Sobrecarga reportada por el controlador de bateria.",
+  batteryOvertemperature: "Sobretemperatura de bateria: revisar el sistema.",
+  inverterOverload: "Sobrecarga del inversor: desconectar cargas no criticas.",
+  inverterFault: "Falla del inversor: revisar el sistema de energia.",
+  supplyCut: "No se esta entregando energia a la vivienda.",
+  rotorRpmOutOfRange: "RPM del rotor fuera de rango: revisar conjunto rotativo.",
 } as const;
 
 const DEFAULT_THRESHOLDS: ThresholdSet = {
@@ -178,6 +197,7 @@ export class AlertsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private realtime: RealtimeGateway,
+    private telemetryTable: TelemetryTableService,
   ) {}
 
   list(farmId?: string, status?: string) {
@@ -199,19 +219,39 @@ export class AlertsService {
       throw new BadRequestException("deviceId es requerido.");
     }
 
-    return this.prisma.alert.findMany({
+    return this.loadRecentByDevice(deviceId);
+  }
+
+  private async loadRecentByDevice(deviceId: string) {
+    const alerts = await this.prisma.alert.findMany({
       where: { deviceId },
       orderBy: { createdAt: "desc" },
       take: 100,
     });
+
+    if (!this.telemetryTable.isEnabled()) {
+      return alerts;
+    }
+
+    const latest = await this.telemetryTable.latest(deviceId);
+    if (!latest) return alerts;
+
+    return this.mergeAlerts(alerts, this.buildDerivedTelemetryAlerts(latest));
   }
 
   async generateFromAerogeneratorReading(input: AerogeneratorAlertInput) {
     const thresholds = {
       windDangerMs: this.readEnvNumber("ALERT_WIND_DANGEROUS_MS", 20),
-      tempHighC: this.readEnvNumber("ALERT_GEN_TEMP_HIGH_C", 80),
+      tempHighC: this.readEnvNumber("ALERT_GEN_TEMP_HIGH_C", 70),
       vibrationHighRms: this.readEnvNumber("ALERT_VIBRATION_HIGH_RMS", 6),
       batteryLowPct: this.readEnvNumber("ALERT_BATTERY_LOW_PCT", 20),
+      batteryCriticalPct: this.readEnvNumber("ALERT_BATTERY_CRITICAL_PCT", 10),
+      batteryVoltageLowV: this.readEnvNumber("ALERT_BATTERY_DC_LOW_V", 42),
+      batteryCurrentHighA: this.readEnvNumber("ALERT_BATTERY_DC_HIGH_A", 24),
+      housePowerHighW: this.readEnvNumber("ALERT_HOUSE_POWER_HIGH_W", 2200),
+      acCurrentHighA: this.readEnvNumber("ALERT_AC_CURRENT_HIGH_A", 12),
+      acVoltageLowV: this.readEnvNumber("ALERT_AC_VOLTAGE_LOW_V", 190),
+      rotorRpmHigh: this.readEnvNumber("ALERT_ROTOR_RPM_HIGH", 750),
     };
 
     const candidates: Array<{ type: any; message: string }> = [];
@@ -220,15 +260,43 @@ export class AlertsService {
       candidates.push({ type: "wind_danger", message: AEROGEN_MESSAGES.windDanger });
     }
 
-    if (input.genTempC > thresholds.tempHighC) {
+    if (input.inverterTempC > thresholds.tempHighC) {
       candidates.push({ type: "generator_temp_high", message: AEROGEN_MESSAGES.tempHigh });
     }
 
-    if (input.vibrationRms > thresholds.vibrationHighRms) {
+    if (input.motorVibration > thresholds.vibrationHighRms) {
       candidates.push({ type: "vibration_high", message: AEROGEN_MESSAGES.vibrationHigh });
     }
 
-    if (input.batteryPct < thresholds.batteryLowPct) {
+    if (input.batterySocPct < thresholds.batteryLowPct || input.batteryAlertLow) {
+      candidates.push({ type: "battery_low", message: AEROGEN_MESSAGES.batteryLow });
+    }
+
+    if (input.batteryAlertOverload || Math.abs(input.batteryCurrentDcA) >= thresholds.batteryCurrentHighA) {
+      candidates.push({ type: "controller_overload", message: AEROGEN_MESSAGES.batteryOverload });
+    }
+
+    if (input.batteryAlertOvertemp) {
+      candidates.push({ type: "battery_overtemperature", message: AEROGEN_MESSAGES.batteryOvertemperature });
+    }
+
+    if (input.inverterAlertOverload || input.housePowerConsumptionW >= thresholds.housePowerHighW || input.inverterOutputCurrentAcA >= thresholds.acCurrentHighA) {
+      candidates.push({ type: "inverter_overload", message: AEROGEN_MESSAGES.inverterOverload });
+    }
+
+    if (input.inverterAlertFault) {
+      candidates.push({ type: "inverter_fault", message: AEROGEN_MESSAGES.inverterFault });
+    }
+
+    if (input.inverterAlertSupplyCut || input.inverterOutputVoltageAcV < thresholds.acVoltageLowV) {
+      candidates.push({ type: "supply_cut", message: AEROGEN_MESSAGES.supplyCut });
+    }
+
+    if (input.bladeRpm >= thresholds.rotorRpmHigh) {
+      candidates.push({ type: "rotor_rpm_out_of_range", message: AEROGEN_MESSAGES.rotorRpmOutOfRange });
+    }
+
+    if (input.batterySocPct <= thresholds.batteryCriticalPct) {
       candidates.push({ type: "battery_low", message: AEROGEN_MESSAGES.batteryLow });
     }
 
@@ -817,5 +885,84 @@ export class AlertsService {
       redFlags: ["La misma alerta aparece en lecturas consecutivas por mas de 24 horas."],
       ...common,
     };
+  }
+
+  private buildDerivedTelemetryAlerts(latest: any) {
+    const timestamp = String(latest?.timestamp || latest?.ts || new Date().toISOString());
+    const deviceId = latest?.deviceId ? String(latest.deviceId) : null;
+    const farmId = latest?.farmId ? String(latest.farmId) : null;
+    const plotId = latest?.plotId ? String(latest.plotId) : null;
+
+    const alerts: any[] = [];
+    const push = (condition: boolean, type: string, message: string, severity: "warning" | "critical") => {
+      if (!condition) return;
+      alerts.push({
+        id: `telemetry:${type}:${timestamp}`,
+        type,
+        status: "open",
+        message,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        severity,
+        deviceId,
+        farmId,
+        plotId,
+      });
+    };
+
+    const soc = Number(latest?.batteryPct ?? latest?.battery_soc_pct ?? 100);
+    const wind = Number(latest?.windSpeedMs ?? latest?.wind_speed_mps ?? 0);
+    const vibration = Number(latest?.vibrationRms ?? latest?.motor_vibration ?? 0);
+    const rpm = Number(latest?.rotorRpm ?? latest?.blade_rpm ?? 0);
+    const inverterTemp = Number(latest?.genTempC ?? latest?.inverter_temp_c ?? 0);
+    const loadPower = Number(latest?.loadPowerW ?? latest?.house_power_consumption_w ?? 0);
+    const acVoltage = Number(latest?.outputVoltageAcV ?? latest?.inverter_output_voltage_ac_v ?? 230);
+    const acCurrent = Number(latest?.outputCurrentAcA ?? latest?.inverter_output_current_ac_a ?? 0);
+    const batteryCurrent = Number(latest?.genCurrentA ?? latest?.battery_current_dc_a ?? 0);
+
+    push(soc <= 10, "battery_critical", "Bateria critica: el sistema puede apagarse pronto.", "critical");
+    push(soc > 10 && soc < 20, "battery_low", "Bateria baja: use la energia con cuidado.", "warning");
+    push(Boolean(latest?.battery_alert_overtemp), "battery_overtemperature", "Temperatura alta en bateria: revisar el sistema.", "critical");
+    push(
+      Boolean(latest?.battery_alert_overload) || Math.abs(batteryCurrent) >= this.readEnvNumber("ALERT_BATTERY_DC_HIGH_A", 24),
+      "controller_overload",
+      "Sobrecarga reportada por el controlador de bateria.",
+      "critical",
+    );
+    push(
+      Boolean(latest?.inverter_alert_overload) || loadPower >= this.readEnvNumber("ALERT_HOUSE_POWER_HIGH_W", 2200) || acCurrent >= this.readEnvNumber("ALERT_AC_CURRENT_HIGH_A", 12),
+      "inverter_overload",
+      "Sobrecarga del inversor: desconectar cargas no criticas.",
+      "critical",
+    );
+    push(Boolean(latest?.inverter_alert_fault), "inverter_fault", "Falla del inversor: revisar el sistema de energia.", "critical");
+    push(
+      Boolean(latest?.inverter_alert_supply_cut) || acVoltage < this.readEnvNumber("ALERT_AC_VOLTAGE_LOW_V", 190),
+      "supply_cut",
+      "No se esta entregando energia a la vivienda.",
+      "critical",
+    );
+    push(wind < 3, "low_wind", "Hay poco viento: la carga puede ser mas lenta.", "warning");
+    push(wind > 20, "high_wind", "Viento fuerte: el sistema esta en condicion exigente.", wind > 24 ? "critical" : "warning");
+    push(rpm >= 650, "rotor_rpm_out_of_range", "RPM del rotor fuera de rango: revisar conjunto rotativo.", rpm >= 750 ? "critical" : "warning");
+    push(vibration >= 4, vibration >= 7 ? "vibration_critical" : "vibration_high", "Vibracion alta: posible problema mecanico.", vibration >= 7 ? "critical" : "warning");
+    push(inverterTemp > 55, "generator_temp_high", "Temperatura alta del inversor: revisar ventilacion y carga.", inverterTemp > 70 ? "critical" : "warning");
+
+    return alerts;
+  }
+
+  private mergeAlerts(remote: any[], derived: any[]) {
+    const merged = new Map<string, any>();
+
+    for (const item of [...remote, ...derived]) {
+      const key = `${String(item.type || "")}:${String(item.status || "")}`;
+      if (!merged.has(key)) {
+        merged.set(key, item);
+      }
+    }
+
+    return [...merged.values()].sort(
+      (left, right) => new Date(String(right.updatedAt || right.createdAt || 0)).getTime() - new Date(String(left.updatedAt || left.createdAt || 0)).getTime(),
+    );
   }
 }

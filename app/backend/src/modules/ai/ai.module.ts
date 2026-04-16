@@ -6,6 +6,7 @@ import { PrismaModule } from "../../prisma/prisma.module";
 import { AiEppoService } from "./pipeline/eppo.service";
 import { AiFusionService } from "./pipeline/fusion.service";
 import { AiGbifService } from "./pipeline/gbif.service";
+import { AiOperationalService } from "./ai-operational.service";
 import { AiKindwiseService } from "./pipeline/kindwise.service";
 import { AiLlmRecipeService } from "./pipeline/llm-recipe.service";
 import { AiMediaPreprocessorService } from "./pipeline/media-preprocessor.service";
@@ -17,6 +18,7 @@ import { AiPlantNetService } from "./pipeline/plantnet.service";
   controllers: [AiController],
   providers: [
     AiService,
+    AiOperationalService,
     DiagnosisPipelineService,
     AiMediaPreprocessorService,
     AiPlantNetService,

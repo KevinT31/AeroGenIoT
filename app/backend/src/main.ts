@@ -15,11 +15,21 @@ async function bootstrap() {
   app.use(helmet());
   app.use(requestLogger);
 
-  const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20 });
-  const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
-  const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 });
+  const authLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: Number(process.env.AUTH_RATE_LIMIT_MAX || "20"),
+  });
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: Number(process.env.API_RATE_LIMIT_MAX || "180"),
+  });
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: Number(process.env.AI_RATE_LIMIT_MAX || "10"),
+  });
   app.use("/api/v1/auth", authLimiter);
-  app.use("/api/v1/ai", aiLimiter);
+  app.use("/api/v1/ai/diagnosis", aiLimiter);
+  app.use("/api/v1/ai/followup", aiLimiter);
   app.use("/api/v1", apiLimiter);
 
   const document = SwaggerModule.createDocument(app, {

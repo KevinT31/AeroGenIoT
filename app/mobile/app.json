@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AeroGenIoT",
+    "name": "Aurora Noctua",
     "slug": "aerogeniot-mobile",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -37,7 +37,7 @@
       "expo-font"
     ],
     "extra": {
-      "appName": "AeroGenIoT",
+      "appName": "Aurora Noctua",
       "deviceDefault": "AE-01",
       "eas": {
         "projectId": "0ca3a330-e72f-458f-bf20-12f43b706a3c"

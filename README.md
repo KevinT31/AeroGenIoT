@@ -3,12 +3,15 @@
 Monorepo con:
 - `app/backend`: API NestJS + Prisma + Socket.IO para ingest IoT.
 - `app/mobile`: app Expo (Android APK) con dashboard moderno.
+- `app/dashboard`: dashboard web tecnico "Aurora Noctua" para centro de control.
 - `tools/simulate-ae01.mjs`: simulador CLI Node 22.
 - `tools/node-red-ae01-flow.json`: flujo Node-RED para enviar lecturas cada 5s.
 
 ## Flujo completo
 
 Laptop (CLI o Node-RED) -> `POST /api/v1/readings/ingest` -> App Runner -> Postgres + Socket.IO -> App movil
+
+Dashboard web -> `GET /api/v1/readings/latest` + `GET /api/v1/alerts/recent` + Socket.IO `/realtime`
 
 ## Inicio rapido
 
@@ -39,7 +42,18 @@ npm install
 npm run start
 ```
 
-### 4) APK release (EAS)
+### 4) Dashboard web
+
+```bash
+cd app/dashboard
+copy .env.example .env
+npm install
+npm run dev
+```
+
+Por defecto usa `http://localhost:3000` como backend. Si quieres demo sin backend, ajusta `VITE_USE_MOCK=true`.
+
+### 5) APK release (EAS)
 
 ```bash
 cd app/mobile

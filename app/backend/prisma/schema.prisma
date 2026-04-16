@@ -1,7 +1,7 @@
 // Prisma schema (AeroGenIoT)
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -37,6 +37,12 @@ enum AlertType {
   generator_temp_high
   vibration_high
   battery_low
+  battery_overtemperature
+  controller_overload
+  inverter_overload
+  inverter_fault
+  supply_cut
+  rotor_rpm_out_of_range
 }
 
 enum PowerSource {
@@ -167,10 +173,10 @@ model Report {
   imageUrl         String
   audioUrl         String?
   summary          String
-  actions          String[]
-  prevention       String[]
-  doNotDo          String[]
-  redFlags         String[]
+  actions          Json
+  prevention       Json
+  doNotDo          Json
+  redFlags         Json
   productsSuggested Json?
   confidence       ReportConfidence @default(med)
   status           ReportStatus     @default(open)
@@ -266,6 +272,7 @@ model SensorReading {
   airHumidity    Float?
   airPressure    Float?
   windSpeed      Float?
+  windDirectionDeg Float?
   genVoltageV    Float?
   genCurrentA    Float?
   powerW         Float?
@@ -273,8 +280,20 @@ model SensorReading {
   sourceNow      PowerSource?
   sourceReason   String?
   vibrationRms   Float?
+  vibrationSignal Float?
   genTempC       Float?
   batteryPct     Float?
+  batteryAutonomyEstimatedH Float?
+  outputVoltageAcV Float?
+  outputCurrentAcA Float?
+  rotorRpm Float?
+  energyDeliveredWh Float?
+  batteryAlertLow Boolean?
+  batteryAlertOverload Boolean?
+  batteryAlertOvertemp Boolean?
+  inverterAlertOverload Boolean?
+  inverterAlertFault Boolean?
+  inverterAlertSupplyCut Boolean?
   energyTodayKwh Float?
   ingestMode     String?
   solarRadiation Float?

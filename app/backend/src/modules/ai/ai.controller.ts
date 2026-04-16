@@ -1,12 +1,21 @@
-import { Body, Controller, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../common/jwt.guard";
 import { AiService } from "./ai.service";
 import { AiDiagnosisDto } from "./dto.ai-diagnosis";
 import { AiFollowupDto } from "./dto.ai-followup";
+import { AiOperationalService } from "./ai-operational.service";
 
 @Controller("ai")
 export class AiController {
-  constructor(private readonly ai: AiService) {}
+  constructor(
+    private readonly ai: AiService,
+    private readonly operationalAi: AiOperationalService,
+  ) {}
+
+  @Get("operational")
+  operational(@Query("deviceId") deviceId?: string) {
+    return this.operationalAi.latest(deviceId);
+  }
 
   @Post("diagnosis")
   @UseGuards(JwtAuthGuard)

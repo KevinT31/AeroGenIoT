@@ -1,15 +1,16 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: AeroGenIoT-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: AuroraNoctua-mysql
     environment:
-      POSTGRES_USER: aerogeniot
-      POSTGRES_PASSWORD: aerogeniot
-      POSTGRES_DB: aerogeniot
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: aerogeniot
+      MYSQL_USER: aerogeniot
+      MYSQL_PASSWORD: aerogeniot
     ports:
-      - "${POSTGRES_PORT:-5544}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
 
   minio:
     image: minio/minio:latest
@@ -25,6 +26,6 @@ services:
       - minio:/data
 
 volumes:
-  pgdata:
+  mysqldata:
   minio:
 

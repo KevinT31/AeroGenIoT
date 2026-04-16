@@ -1,34 +1,42 @@
 import axios from "axios";
 import { ENV } from "../config/env";
-import { AlertItem, LatestReading } from "../types/aerogen";
-
-const base = ENV.apiBase;
+import { AlertApiItem, LatestReadingApi, OperationalAiSnapshot } from "../types/aerogen";
 
 const client = axios.create({
-  baseURL: `${base}/api/v1`,
-  timeout: 12000,
+  baseURL: ENV.hasRemoteApi ? `${ENV.apiBase}/api/v1` : undefined,
+  timeout: ENV.requestTimeoutMs,
 });
 
-export const hasApiBase = Boolean(base);
+export const backendApi = {
+  hasConfiguredApi: ENV.hasRemoteApi,
 
-export const fetchLatestReading = async (deviceId: string): Promise<LatestReading | null> => {
-  if (!hasApiBase) return null;
-  const response = await client.get<LatestReading | null>("/readings/latest", {
-    params: { deviceId },
-  });
-  return response.data;
-};
+  async fetchLatestReadingRaw(deviceId: string): Promise<LatestReadingApi | null> {
+    if (!ENV.hasRemoteApi) return null;
+    const response = await client.get<LatestReadingApi | null>("/readings/latest", {
+      params: { deviceId },
+    });
+    return response.data;
+  },
 
-export const fetchRecentAlerts = async (deviceId: string): Promise<AlertItem[]> => {
-  if (!hasApiBase) return [];
-  const response = await client.get<AlertItem[]>("/alerts/recent", {
-    params: { deviceId },
-  });
-  return Array.isArray(response.data) ? response.data : [];
-};
+  async fetchRecentAlertsRaw(deviceId: string): Promise<AlertApiItem[]> {
+    if (!ENV.hasRemoteApi) return [];
+    const response = await client.get<AlertApiItem[]>("/alerts/recent", {
+      params: { deviceId },
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  },
 
-export const ackAlert = async (alertId: string): Promise<AlertItem | null> => {
-  if (!hasApiBase) return null;
-  const response = await client.post<AlertItem>(`/alerts/${alertId}/ack`);
-  return response.data || null;
+  async fetchOperationalAiRaw(deviceId: string): Promise<OperationalAiSnapshot | null> {
+    if (!ENV.hasRemoteApi) return null;
+    const response = await client.get<OperationalAiSnapshot | null>("/ai/operational", {
+      params: { deviceId },
+    });
+    return response.data ?? null;
+  },
+
+  async ackAlertRaw(alertId: string): Promise<AlertApiItem | null> {
+    if (!ENV.hasRemoteApi) return null;
+    const response = await client.post<AlertApiItem>(`/alerts/${alertId}/ack`);
+    return response.data || null;
+  },
 };

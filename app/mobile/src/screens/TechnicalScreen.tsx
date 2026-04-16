@@ -1,47 +1,118 @@
 import React from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { HeroBanner } from "../components/HeroBanner";
+import { MetricCard } from "../components/MetricCard";
 import { Panel } from "../components/Panel";
+import { ScreenLayout } from "../components/ScreenLayout";
 import { StatusTag } from "../components/StatusTag";
+import { ENV } from "../config/env";
+import { useI18n } from "../i18n/LanguageContext";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
-import { round, sourceLabel, systemState, temperatureState, vibrationState, windState } from "../utils/format";
-import { useI18n } from "../i18n/LanguageContext";
 import { AppLanguage } from "../i18n/translations";
-import { SourceNow } from "../types/aerogen";
+import {
+  acVoltageState,
+  estimateAutonomyHours,
+  round,
+  rpmState,
+  temperatureState,
+  vibrationState,
+  voltageState,
+  windDirectionLabel,
+  windState,
+} from "../utils/format";
 
-const Row = ({ icon, label, value, unit }: { icon: string; label: string; value: string; unit: string }) => (
-  <View style={styles.sensorTile}>
-    <MaterialCommunityIcons name={icon as any} size={18} color={palette.sky700} />
-    <Text style={styles.rowLabel}>{label}</Text>
-    <Text style={styles.rowValue}>
-      {value} <Text style={styles.rowUnit}>{unit}</Text>
-    </Text>
-  </View>
-);
+const aiCopy = {
+  es: {
+    title: "IA operativa",
+    fault: "Falla probable",
+    power: "Pronostico",
+    yaw: "Orientacion",
+    noData: "Sin prediccion",
+    confidence: "Confianza",
+    horizon: "Horizonte",
+    range: "Rango",
+    action: "Accion",
+    reason: "Motivo",
+    align: "Alinear con la direccion viva del viento.",
+    yawReason: "Recomendacion calculada para el dispositivo activo.",
+  },
+  en: {
+    title: "Operational AI",
+    fault: "Probable fault",
+    power: "Forecast",
+    yaw: "Yaw target",
+    noData: "No prediction",
+    confidence: "Confidence",
+    horizon: "Horizon",
+    range: "Range",
+    action: "Action",
+    reason: "Reason",
+    align: "Align with the live wind direction.",
+    yawReason: "Recommendation generated for the active device.",
+  },
+  qu: {
+    title: "IA operativa",
+    fault: "Probable falla",
+    power: "Pronostico",
+    yaw: "Orientacion",
+    noData: "Mana prediccion kanchu",
+    confidence: "Confianza",
+    horizon: "Horizonte",
+    range: "Rango",
+    action: "Accion",
+    reason: "Motivo",
+    align: "Kunan wayra direccionwan alineay.",
+    yawReason: "Activo dispositivopaq rekomendasqa.",
+  },
+} as const;
+
+const faultLabels = {
+  high_temp: { es: "Temperatura alta del inversor", en: "High inverter temperature", qu: "Temperatura hatun" },
+  high_vibration: { es: "Vibracion alta del motor", en: "High motor vibration", qu: "Vibracion hatun" },
+  low_battery: { es: "Reserva de bateria baja", en: "Low battery reserve", qu: "Bateria pisi" },
+  overload: { es: "Riesgo de sobrecarga", en: "Overload risk", qu: "Sobrecarga peligru" },
+  nominal_operation: { es: "Operacion nominal", en: "Nominal operation", qu: "Allin operacion" },
+} as const;
+
+const humanizeFaultLabel = (language: AppLanguage, label: string | null) => {
+  if (!label) return aiCopy[language].noData;
+  const known = faultLabels[label as keyof typeof faultLabels];
+  if (known) return known[language];
+  return label
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (token) => token.toUpperCase());
+};
+
+const formatNumber = (value: number | null | undefined, digits = 0) =>
+  value === null || value === undefined || Number.isNaN(value) ? "--" : Number(value).toFixed(digits);
+
+const formatPower = (value: number | null | undefined) =>
+  value === null || value === undefined || Number.isNaN(value)
+    ? "--"
+    : `${Number(value).toFixed(value >= 1000 ? 0 : 1)} W`;
+
+const aiLevel = (severity: "info" | "warning" | "critical" | null | undefined) => {
+  if (severity === "critical") return "stop" as const;
+  if (severity === "warning") return "warn" as const;
+  return "ok" as const;
+};
 
 export const TechnicalScreen = () => {
-  const { reading } = useAero();
+  const { reading, aiOperational, syncState, isConnectedRealtime, isRealtimeEnabled } = useAero();
   const { language, setLanguage, t } = useI18n();
-  const tabBarHeight = useBottomTabBarHeight();
-  const insets = useSafeAreaInsets();
-  const system = systemState(reading, language);
+  const aiText = aiCopy[language];
   const wind = windState(reading?.windSpeedMs, language);
   const temp = temperatureState(reading?.genTempC, language);
   const vibration = vibrationState(reading?.vibrationRms, language);
-  const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
-  const windSpeed = reading?.windSpeedMs ?? 0;
-  const windLevel: "ok" | "warn" | "stop" = windSpeed > 20 ? "stop" : windSpeed >= 3 && windSpeed <= 12 ? "ok" : "warn";
-  const sourceReasonBySource: Record<SourceNow, string> = {
-    WIND: t("home.source.reason.WIND"),
-    BATTERY: t("home.source.reason.BATTERY"),
-    BOTH: t("home.source.reason.BOTH"),
-  };
-  const sourceReason = reading?.sourceNow ? sourceReasonBySource[reading.sourceNow] : t("technical.source.noData");
-
+  const batteryVoltage = voltageState(reading?.genVoltageV, language);
+  const acVoltage = acVoltageState(reading?.outputVoltageAcV, language);
+  const rotorRpm = rpmState(reading?.rotorRpm, language);
+  const autonomyHours =
+    reading?.estimatedAutonomyHours ?? estimateAutonomyHours(reading?.batteryPct, reading?.loadPowerW, ENV.batteryCapacityKwh);
+  const hasVibrationSignal = reading?.vibrationSignal !== null && reading?.vibrationSignal !== undefined;
+  const windLevel = (reading?.windSpeedMs ?? 0) > 20 ? "stop" : (reading?.windSpeedMs ?? 0) < 3 ? "warn" : "ok";
   const languageOptions: Array<{ code: AppLanguage; key: string }> = [
     { code: "es", key: "language.es" },
     { code: "en", key: "language.en" },
@@ -49,163 +120,358 @@ export const TechnicalScreen = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
-      <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}>
-        <LinearGradient colors={["#0369A1", "#0EA5E9"]} style={styles.hero}>
-          <View style={styles.heroIconWrap}>
-            <MaterialCommunityIcons name="tools" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.heroTitle}>{t("technical.hero.title")}</Text>
-          <Text style={styles.heroSub}>{t("technical.hero.subtitle")}</Text>
-        </LinearGradient>
+    <ScreenLayout>
+      <HeroBanner icon="compass-rose" title={t("technical.hero.title")} colors={["#0C5E8D", "#1998D0"]} />
 
-        <Panel
-          title={t("technical.system.title")}
-          rightSlot={<MaterialCommunityIcons name="shield-check-outline" size={24} color={palette.sky700} />}
-        >
-          <StatusTag level={system.level} text={system.title} />
-          <Text style={styles.helpText}>{system.message}</Text>
-        </Panel>
+      <Panel
+        title={t("technical.system.title")}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="shield-check-outline" size={22} color={palette.sky700} />}
+      >
+        <View style={styles.statusStack}>
+          <View style={styles.statusItem}>
+            <Text style={styles.statusLabel}>{t("technical.sync.titleShort")}</Text>
+            <Text style={styles.statusValue}>
+              {t(
+                {
+                  live: "common.sync.liveShort",
+                  stale: "common.sync.staleShort",
+                  offline: "common.sync.offlineShort",
+                  empty: "common.sync.emptyShort",
+                  error: "common.sync.errorShort",
+                }[syncState],
+              )}
+            </Text>
+          </View>
+          <View style={styles.statusItem}>
+            <Text style={styles.statusLabel}>{t("technical.sync.channelShort")}</Text>
+            <Text style={styles.statusValue}>
+              {isRealtimeEnabled
+                ? isConnectedRealtime
+                  ? t("technical.sync.realtimeShort")
+                  : t("technical.sync.pollingShort")
+                : t("technical.sync.restOnlyShort")}
+            </Text>
+          </View>
+        </View>
+      </Panel>
 
-        <Panel title={t("technical.sensors.title")} rightSlot={<MaterialCommunityIcons name="access-point-network" size={24} color={palette.sky700} />}>
-          <View style={styles.sensorGrid}>
-            <Row icon="weather-windy" label={t("technical.sensor.wind")} value={round(reading?.windSpeedMs)} unit="m/s" />
-            <Row icon="sine-wave" label={t("technical.sensor.voltage")} value={round(reading?.genVoltageV)} unit="V" />
-            <Row icon="current-ac" label={t("technical.sensor.current")} value={round(reading?.genCurrentA)} unit="A" />
-            <Row icon="flash-outline" label={t("technical.sensor.power")} value={round(reading?.powerW)} unit="W" />
-            <Row icon="thermometer" label={t("technical.sensor.temp")} value={round(reading?.genTempC)} unit="C" />
-            <Row icon="vibrate" label={t("technical.sensor.vibration")} value={round(reading?.vibrationRms)} unit="m/s2" />
-            <Row icon="battery-high" label={t("technical.sensor.battery")} value={round(reading?.batteryPct, 0)} unit="%" />
-          </View>
-        </Panel>
-
-        <Panel
-          title={t("technical.source.title")}
-          subtitle={sourceLabel(reading?.sourceNow, language)}
-          rightSlot={<MaterialCommunityIcons name="transmission-tower" size={24} color={palette.sky700} />}
-        >
-          <Text style={styles.helpText}>{sourceReason}</Text>
-          <View style={styles.tagRow}>
-            <StatusTag level={windLevel} text={t("technical.tag.wind", { value: wind.label })} />
-          </View>
-          <View style={styles.tagRow}>
-            <StatusTag level={temp.level} text={t("technical.tag.temp", { value: temp.label })} />
-          </View>
-          <View style={styles.tagRow}>
-            <StatusTag level={vibration.level} text={t("technical.tag.vibration", { value: vibration.label })} />
-          </View>
-        </Panel>
-
-        <Panel
-          title={t("language.panel.title")}
-          subtitle={t("language.panel.subtitle")}
-          rightSlot={<MaterialCommunityIcons name="translate" size={24} color={palette.sky700} />}
-        >
-          <View style={styles.languageRow}>
-            {languageOptions.map((option) => {
-              const isActive = language === option.code;
-              return (
-                <Pressable
-                  key={option.code}
-                  style={[styles.languageChip, isActive ? styles.languageChipActive : null]}
-                  onPress={() => setLanguage(option.code)}
-                >
-                  <Text style={[styles.languageChipText, isActive ? styles.languageChipTextActive : null]}>{t(option.key)}</Text>
-                </Pressable>
-              );
+      <Panel
+        title={t("technical.metrics.title")}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="chart-box-outline" size={22} color={palette.sky700} />}
+      >
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="weather-windy"
+            title={t("technical.sensor.wind")}
+            value={round(reading?.windSpeedMs, 1)}
+            unit="m/s"
+            helper={wind.label}
+            tone="sky"
+          />
+          <MetricCard
+            icon="compass-rose"
+            title={t("technical.sensor.direction")}
+            value={windDirectionLabel(reading?.windDirectionDeg, language)}
+            helper={t("technical.sensor.directionHelper")}
+            tone="neutral"
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="rotate-3d-variant"
+            title={t("technical.sensor.rpm")}
+            value={round(reading?.rotorRpm, 0)}
+            unit="rpm"
+            helper={rotorRpm.label}
+            tone={rotorRpm.level === "ok" ? "good" : rotorRpm.level === "warn" ? "warn" : "danger"}
+          />
+          <MetricCard
+            icon="vibrate"
+            title={t("technical.sensor.vibration")}
+            value={round(reading?.vibrationRms, 2)}
+            unit="m/s2"
+            helper={vibration.label}
+            tone={vibration.level === "ok" ? "good" : vibration.level === "warn" ? "warn" : "danger"}
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="battery"
+            title={t("technical.sensor.voltage")}
+            value={round(reading?.genVoltageV, 1)}
+            unit="V"
+            helper={batteryVoltage.label}
+            tone={batteryVoltage.level === "ok" ? "good" : batteryVoltage.level === "warn" ? "warn" : "danger"}
+          />
+          <MetricCard
+            icon="current-dc"
+            title={t("technical.sensor.current")}
+            value={round(reading?.genCurrentA, 1)}
+            unit="A"
+            helper={t("technical.sensor.currentHelper")}
+            tone="neutral"
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="flash-outline"
+            title={t("technical.sensor.power")}
+            value={round(reading?.powerW, 0)}
+            unit="W"
+            helper={t("technical.sensor.powerHelper")}
+            tone="good"
+          />
+          <MetricCard
+            icon="battery-high"
+            title={t("technical.sensor.battery")}
+            value={round(reading?.batteryPct, 0)}
+            unit="%"
+            helper={t("technical.sensor.batteryHelper", {
+              hours: autonomyHours === null ? "--" : `${round(autonomyHours, 1)} h`,
             })}
+            tone={(reading?.batteryPct ?? 100) < 20 ? "warn" : "good"}
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="sine-wave"
+            title={t("technical.sensor.acVoltage")}
+            value={round(reading?.outputVoltageAcV, 1)}
+            unit="V"
+            helper={acVoltage.label}
+            tone={acVoltage.level === "ok" ? "good" : acVoltage.level === "warn" ? "warn" : "danger"}
+          />
+          <MetricCard
+            icon="current-ac"
+            title={t("technical.sensor.acCurrent")}
+            value={round(reading?.outputCurrentAcA, 1)}
+            unit="A"
+            helper={t("technical.sensor.acCurrentHelper")}
+            tone="neutral"
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="home-lightning-bolt-outline"
+            title={t("technical.sensor.load")}
+            value={round(reading?.loadPowerW, 0)}
+            unit="W"
+            helper={t("technical.sensor.loadHelper")}
+            tone="sky"
+          />
+          <MetricCard
+            icon="thermometer"
+            title={t("technical.sensor.temp")}
+            value={round(reading?.genTempC, 1)}
+            unit="C"
+            helper={temp.label}
+            tone={temp.level === "ok" ? "good" : temp.level === "warn" ? "warn" : "danger"}
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="flash-outline"
+            title={t("technical.sensor.energy")}
+            value={round(reading?.energyTodayKwh, 2)}
+            unit="kWh"
+            helper={t("technical.sensor.energyHelper")}
+            tone="sky"
+          />
+          {hasVibrationSignal ? (
+            <MetricCard
+              icon="vibrate"
+              title={t("technical.sensor.vibrationSignal")}
+              value={round(reading?.vibrationSignal, 3)}
+              helper={t("technical.sensor.vibrationSignalHelper")}
+              tone="neutral"
+            />
+          ) : null}
+        </View>
+      </Panel>
+
+      <Panel
+        title={t("technical.source.title")}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="transmission-tower" size={22} color={palette.sky700} />}
+      >
+        <Text style={styles.sourceText}>
+          {t("technical.context.message", {
+            direction: windDirectionLabel(reading?.windDirectionDeg, language),
+            voltage: round(reading?.outputVoltageAcV, 0),
+            current: round(reading?.outputCurrentAcA, 1),
+            autonomy: autonomyHours === null ? "--" : round(autonomyHours, 1),
+          })}
+        </Text>
+        <View style={styles.tagStack}>
+          <StatusTag level={windLevel} text={t("technical.tag.wind", { value: wind.label })} />
+        </View>
+        <View style={styles.tagStack}>
+          <StatusTag level={temp.level} text={t("technical.tag.temp", { value: temp.label })} />
+        </View>
+        <View style={styles.tagStack}>
+          <StatusTag level={vibration.level} text={t("technical.tag.vibration", { value: vibration.label })} />
+        </View>
+        <View style={styles.tagStack}>
+          <StatusTag level={rotorRpm.level} text={t("technical.tag.rpm", { value: rotorRpm.label })} />
+        </View>
+      </Panel>
+
+      <Panel
+        title={aiText.title}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="brain" size={22} color={palette.sky700} />}
+      >
+        <View style={styles.aiStack}>
+          <View style={styles.aiCard}>
+            <View style={styles.aiHeaderRow}>
+              <Text style={styles.aiLabel}>{aiText.fault}</Text>
+              <StatusTag level={aiLevel(aiOperational?.faultPrediction?.severity)} text={humanizeFaultLabel(language, aiOperational?.faultPrediction?.label ?? null)} />
+            </View>
+            <Text style={styles.aiValue}>{humanizeFaultLabel(language, aiOperational?.faultPrediction?.label ?? null)}</Text>
+            <Text style={styles.aiMeta}>
+              {aiText.confidence}: {formatNumber(aiOperational?.faultPrediction?.confidencePct ?? null, 0)}%
+            </Text>
           </View>
-        </Panel>
-      </ScrollView>
-    </SafeAreaView>
+
+          <View style={styles.aiCard}>
+            <Text style={styles.aiLabel}>{aiText.power}</Text>
+            <Text style={styles.aiValue}>{formatPower(aiOperational?.powerForecast?.predictedPowerW ?? null)}</Text>
+            <Text style={styles.aiMeta}>
+              {aiText.horizon}: {formatNumber(aiOperational?.powerForecast?.horizonMinutes ?? null, 0)} min
+            </Text>
+            <Text style={styles.aiMeta}>
+              {aiText.range}: {formatPower(aiOperational?.powerForecast?.lowerBoundW ?? null)} - {formatPower(aiOperational?.powerForecast?.upperBoundW ?? null)}
+            </Text>
+          </View>
+
+          <View style={styles.aiCard}>
+            <Text style={styles.aiLabel}>{aiText.yaw}</Text>
+            <Text style={styles.aiValue}>
+              {aiOperational?.yawRecommendation?.targetYawDeg === null || aiOperational?.yawRecommendation?.targetYawDeg === undefined
+                ? aiText.noData
+                : `${formatNumber(aiOperational?.yawRecommendation?.targetYawDeg ?? null, 0)}°`}
+            </Text>
+            <Text style={styles.aiMeta}>
+              {aiText.action}: {aiOperational?.yawRecommendation?.action || aiText.align}
+            </Text>
+            <Text style={styles.aiMeta}>
+              {aiText.reason}: {aiOperational?.yawRecommendation?.reason || aiText.yawReason}
+            </Text>
+          </View>
+        </View>
+      </Panel>
+
+      <Panel
+        title={t("language.panel.title")}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="translate" size={22} color={palette.sky700} />}
+      >
+        <View style={styles.languageRow}>
+          {languageOptions.map((option) => {
+            const isActive = language === option.code;
+            return (
+              <Pressable
+                key={option.code}
+                style={[styles.languageChip, isActive ? styles.languageChipActive : null]}
+                onPress={() => setLanguage(option.code)}
+              >
+                <Text style={[styles.languageChipText, isActive ? styles.languageChipTextActive : null]}>
+                  {t(option.key)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Panel>
+    </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingTop: spacing.md,
+  statusStack: {
+    width: "100%",
     gap: spacing.md,
   },
-  hero: {
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: "#63CBF5",
-    alignItems: "center",
-    gap: 6,
-    shadowColor: "#0B6A95",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
-  },
-  heroIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.22)",
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontFamily: fonts.title,
-    fontSize: 22,
-    textAlign: "center",
-  },
-  heroSub: {
-    color: "#DDF4FF",
-    fontFamily: fonts.body,
-    textAlign: "center",
-  },
-  sensorGrid: {
+  statusItem: {
     width: "100%",
-    gap: spacing.sm,
-  },
-  sensorTile: {
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: "#F7FBFF",
-    paddingVertical: 10,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: palette.cardSoft,
+    padding: spacing.sm,
+    gap: 4,
     alignItems: "center",
   },
-  rowLabel: {
+  statusLabel: {
     color: palette.textSoft,
     fontFamily: fonts.bodySemi,
     fontSize: 12,
-    marginTop: 4,
     textAlign: "center",
   },
-  rowValue: {
+  statusValue: {
     color: palette.text,
     fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    marginTop: 3,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: "center",
   },
-  rowUnit: {
-    fontSize: 12,
-    color: palette.textSoft,
-    fontFamily: fonts.bodySemi,
+  metricGrid: {
+    flexDirection: "row",
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  helpText: {
-    marginTop: 8,
+  sourceText: {
     color: palette.textSoft,
     fontFamily: fonts.body,
     lineHeight: 20,
     textAlign: "center",
   },
-  tagRow: {
+  tagStack: {
     marginTop: spacing.sm,
-    alignItems: "center",
     width: "100%",
+    alignItems: "center",
+  },
+  aiStack: {
+    width: "100%",
+    gap: spacing.md,
+  },
+  aiCard: {
+    width: "100%",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.cardSoft,
+    padding: spacing.md,
+    gap: 8,
+  },
+  aiHeaderRow: {
+    width: "100%",
+    gap: spacing.sm,
+    alignItems: "center",
+  },
+  aiLabel: {
+    color: palette.textSoft,
+    fontFamily: fonts.bodySemi,
+    fontSize: 12,
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+  },
+  aiValue: {
+    color: palette.text,
+    fontFamily: fonts.titleMedium,
+    fontSize: 18,
+    lineHeight: 24,
+    textAlign: "center",
+  },
+  aiMeta: {
+    color: palette.textSoft,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
   },
   languageRow: {
     width: "100%",
@@ -217,7 +483,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: "#F7FBFF",
+    backgroundColor: palette.cardSoft,
     borderRadius: radius.md,
     paddingVertical: 10,
     alignItems: "center",

@@ -1,320 +1,262 @@
 import React from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, Text, View } from "react-native";
+import { HeroBanner } from "../components/HeroBanner";
+import { MetricCard } from "../components/MetricCard";
 import { Panel } from "../components/Panel";
+import { ScreenLayout } from "../components/ScreenLayout";
 import { StatusTag } from "../components/StatusTag";
+import { ENV } from "../config/env";
+import { useI18n } from "../i18n/LanguageContext";
+import { deviceStatusService } from "../services/deviceStatusService";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
 import {
+  acVoltageState,
   estimateAutonomyHours,
   round,
-  sourceLabel,
-  systemState,
   temperatureState,
-  timeAgo,
   vibrationState,
   voltageState,
+  windDirectionLabel,
   windState,
 } from "../utils/format";
-import { ENV } from "../config/env";
-import { useI18n } from "../i18n/LanguageContext";
-import { SourceNow } from "../types/aerogen";
-
-const levelColor = {
-  ok: palette.good,
-  warn: palette.warn,
-  stop: palette.danger,
-};
 
 export const HomeScreen = () => {
-  const { reading, alerts, ackedAlerts, loading, apiReachable, lastSyncAt, refresh } = useAero();
+  const { reading, pendingAlerts, loading, refreshing, syncState, refresh } = useAero();
   const { language, t } = useI18n();
-  const tabBarHeight = useBottomTabBarHeight();
-  const insets = useSafeAreaInsets();
-  const status = systemState(reading, language);
+
+  const system = deviceStatusService.getSystemSummary(reading, pendingAlerts, language);
+  const situation = deviceStatusService.getPrimarySituation(reading, pendingAlerts, language);
+  const sync = deviceStatusService.getSyncCopy(syncState, language);
+  const primaryMessage =
+    syncState === "live" || syncState === "empty"
+      ? situation.message
+      : `${situation.message} ${sync.message}`;
   const wind = windState(reading?.windSpeedMs, language);
   const temp = temperatureState(reading?.genTempC, language);
   const vibration = vibrationState(reading?.vibrationRms, language);
-  const voltage = voltageState(reading?.genVoltageV, language);
-  const autonomyHours = estimateAutonomyHours(reading?.batteryPct, reading?.loadPowerW, ENV.batteryCapacityKwh);
-  const activeAlerts = alerts.filter((alert) => alert.status === "open" && !ackedAlerts[alert.id]);
-  const contentPaddingBottom = spacing.xl + tabBarHeight + insets.bottom;
-  const sourceIcon =
-    reading?.sourceNow === "WIND" ? "weather-windy" : reading?.sourceNow === "BATTERY" ? "battery" : "transmission-tower";
-  const connectionLevel = apiReachable ? "ok" : "stop";
-  const connectionText = apiReachable ? t("common.connected") : t("common.noSignal");
-  const alertTitleByType: Record<string, string> = {
-    wind_danger: t("alerts.type.wind_danger"),
-    generator_temp_high: t("alerts.type.generator_temp_high"),
-    vibration_high: t("alerts.type.vibration_high"),
-    battery_low: t("alerts.type.battery_low"),
-  };
-  const sourceReasonBySource: Record<SourceNow, string> = {
-    WIND: t("home.source.reason.WIND"),
-    BATTERY: t("home.source.reason.BATTERY"),
-    BOTH: t("home.source.reason.BOTH"),
-  };
-  const sourceReason = reading?.sourceNow ? sourceReasonBySource[reading.sourceNow] : t("home.source.waiting");
+  const batteryVoltage = voltageState(reading?.genVoltageV, language);
+  const acVoltage = acVoltageState(reading?.outputVoltageAcV, language);
+  const autonomyHours = reading?.estimatedAutonomyHours ?? estimateAutonomyHours(reading?.batteryPct, reading?.loadPowerW, ENV.batteryCapacityKwh);
+  const batteryTone =
+    (reading?.batteryPct ?? 100) < 20 ? "danger" : (reading?.batteryPct ?? 100) < 40 ? "warn" : "good";
+  const windTone =
+    (reading?.windSpeedMs ?? 0) > 20 ? "danger" : (reading?.windSpeedMs ?? 0) < 3 ? "warn" : "sky";
+  const contextAcLabel = acVoltage.level === "ok" ? t("home.section.context.acStable") : acVoltage.label;
+  const supplyMessage = t("home.section.context.message", {
+    direction: windDirectionLabel(reading?.windDirectionDeg, language),
+    voltage: round(reading?.outputVoltageAcV, 0),
+    current: round(reading?.outputCurrentAcA, 1),
+  });
 
   return (
-    <SafeAreaView style={styles.page} edges={["top", "left", "right"]}>
-      <ScrollView
-        style={styles.page}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refresh()} tintColor={palette.sky700} />}
-        contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+    <ScreenLayout refreshing={loading || refreshing} onRefresh={() => void refresh()}>
+      <HeroBanner icon="fan" title={t("home.hero.title")} colors={["#0B6E99", "#16A6DB"]} />
+
+      <Panel
+        title={situation.title}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="shield-check-outline" size={22} color={palette.sky700} />}
       >
-        <LinearGradient colors={[palette.sky700, palette.sky500]} style={styles.hero}>
-          <View style={styles.heroIconWrap}>
-            <MaterialCommunityIcons name="fan" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.heroTitle}>{t("home.hero.title")}</Text>
-          <Text style={styles.heroSub}>{t("home.hero.updated", { time: timeAgo(lastSyncAt, language) })}</Text>
-          <StatusTag level={connectionLevel} text={connectionText} />
-        </LinearGradient>
+        <Text style={styles.bodyText}>{primaryMessage}</Text>
+      </Panel>
 
-        <Panel
-          title={status.title}
-          subtitle={status.message}
-          rightSlot={<MaterialCommunityIcons name="shield-check" size={24} color={levelColor[status.level]} />}
-        >
-          <StatusTag
-            level={status.level}
-            text={
-              status.level === "ok"
-                ? t("home.systemTag.ok")
-                : status.level === "warn"
-                  ? t("home.systemTag.warn")
-                  : t("home.systemTag.stop")
-            }
+      <Panel
+        title={t("home.activeAlerts.title")}
+        subtitle={
+          pendingAlerts.length
+            ? t("home.activeAlerts.subtitleCount", { count: pendingAlerts.length })
+            : t("home.activeAlerts.subtitleNone")
+        }
+        centerHeaderText
+        rightSlot={
+          <MaterialCommunityIcons
+            name="bell-alert-outline"
+            size={22}
+            color={pendingAlerts.length ? palette.warn : palette.good}
           />
-        </Panel>
+        }
+      >
+        {!pendingAlerts.length ? (
+          <Text style={styles.bodyText}>{t("home.activeAlerts.noneText")}</Text>
+        ) : (
+          <View style={styles.alertList}>
+            {pendingAlerts.map((alert) => (
+              <View key={alert.id} style={styles.alertRow}>
+                <View
+                  style={[
+                    styles.alertDot,
+                    { backgroundColor: alert.severity === "stop" ? palette.danger : palette.warn },
+                  ]}
+                />
+                <Text style={styles.alertRowText}>
+                  {deviceStatusService.getAlertPresentation(alert, language).title}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </Panel>
 
-        <Panel
-          title={t("home.activeAlerts.title")}
-          subtitle={
-            activeAlerts.length
-              ? t("home.activeAlerts.subtitleCount", { count: activeAlerts.length })
-              : t("home.activeAlerts.subtitleNone")
-          }
-          rightSlot={<MaterialCommunityIcons name="bell-alert-outline" size={24} color={activeAlerts.length ? palette.warn : palette.good} />}
-        >
-          {!activeAlerts.length ? (
-            <Text style={styles.infoText}>{t("home.activeAlerts.noneText")}</Text>
-          ) : (
-            <View style={styles.alertList}>
-              {activeAlerts.map((alert) => (
-                <View key={alert.id} style={styles.alertItem}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={16} color={palette.warn} />
-                  <Text style={styles.alertText}>{alertTitleByType[alert.type] || t("common.systemEvent")}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </Panel>
-
-        <Panel
-          title={t("home.wind.title")}
-          subtitle={t("home.wind.subtitle")}
-          rightSlot={<MaterialCommunityIcons name="weather-windy" size={24} color={palette.sky700} />}
-        >
-          <Text style={styles.metricValue}>{round(reading?.windSpeedMs)} m/s</Text>
-          <Text style={styles.metricLabel}>{wind.label}</Text>
-          <Text style={styles.infoText}>{wind.message}</Text>
-        </Panel>
-
-        <Panel
+      <View style={styles.metricGrid}>
+        <MetricCard
+          icon="flash-outline"
           title={t("home.energy.title")}
-          subtitle={t("home.energy.subtitle")}
-          rightSlot={<MaterialCommunityIcons name="flash" size={24} color={palette.sky700} />}
-        >
-          <Text style={styles.metricValue}>{round(reading?.energyTodayKwh, 2)} kWh</Text>
-          <Text style={styles.infoText}>{t("home.energy.info")}</Text>
-        </Panel>
-
-        <Panel
+          value={round(reading?.energyTodayKwh, 2)}
+          unit="kWh"
+          helper={t("home.energy.info")}
+          tone="sky"
+        />
+        <MetricCard
+          icon="battery-high"
           title={t("home.battery.title")}
-          subtitle={t("home.battery.subtitle")}
-          rightSlot={<MaterialCommunityIcons name="battery-high" size={24} color={palette.sky700} />}
-        >
-          <Text style={styles.metricValue}>{round(reading?.batteryPct, 0)}%</Text>
-          <Text style={styles.infoText}>
-            {t("home.battery.autonomy", {
-              hours: autonomyHours === null ? "--" : `${round(autonomyHours, 1)} h`,
-            })}
-          </Text>
-          <View style={styles.iconLine}>
-            <MaterialCommunityIcons name="alert-outline" size={16} color={palette.textSoft} />
-            <Text style={styles.iconLineText}>{t("home.battery.tip")}</Text>
-          </View>
-        </Panel>
+          value={round(reading?.batteryPct, 0)}
+          unit="%"
+          helper={t("home.battery.autonomy", {
+            hours: autonomyHours === null ? "--" : `${round(autonomyHours, 1)} h`,
+          })}
+          tone={batteryTone}
+        />
+      </View>
 
-        <Panel
-          title={t("home.source.title")}
-          subtitle={sourceLabel(reading?.sourceNow, language)}
-          rightSlot={<MaterialCommunityIcons name={sourceIcon as any} size={24} color={palette.sky700} />}
-        >
-          <Text style={styles.infoText}>{sourceReason}</Text>
-        </Panel>
+      <View style={styles.metricGrid}>
+        <MetricCard
+          icon="bell-alert-outline"
+          title={t("home.activeAlerts.title")}
+          value={String(pendingAlerts.length)}
+          helper={
+            pendingAlerts.length ? t("home.activeAlerts.subtitleCount", { count: pendingAlerts.length }) : t("home.activeAlerts.subtitleNone")
+          }
+          tone={pendingAlerts.length ? "warn" : "good"}
+        />
+        <MetricCard
+          icon="home-lightning-bolt-outline"
+          title={t("home.consumption.title")}
+          value={round(reading?.loadPowerW, 0)}
+          unit="W"
+          helper={t("home.consumption.subtitle")}
+          tone="neutral"
+        />
+      </View>
 
-        <View style={styles.row}>
-          <View style={styles.col}>
-            <Panel
-              title={t("home.electrical.title")}
-              subtitle={t("home.electrical.subtitle")}
-              rightSlot={<MaterialCommunityIcons name="transmission-tower" size={22} color={palette.sky700} />}
-            >
-              <StatusTag level={voltage.level} text={voltage.label} />
-            </Panel>
-          </View>
-          <View style={styles.col}>
-            <Panel
-              title={t("home.consumption.title")}
-              subtitle={t("home.consumption.subtitle")}
-              rightSlot={<MaterialCommunityIcons name="home-lightning-bolt-outline" size={22} color={palette.sky700} />}
-            >
-              <Text style={[styles.metricValue, { fontSize: 24 }]}>{round(reading?.loadPowerW, 0)} W</Text>
-            </Panel>
-          </View>
+      <Panel
+        title={t("home.section.context.title")}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="home-lightning-bolt-outline" size={22} color={palette.sky700} />}
+      >
+        <View style={styles.contextStack}>
+          <StatusTag level={acVoltage.level} text={t("home.section.context.status", { wind: wind.label, ac: contextAcLabel })} />
+          <Text style={styles.bodyText}>{supplyMessage}</Text>
         </View>
-
-        <View style={styles.row}>
-          <View style={styles.col}>
-            <Panel
-              title={t("home.temperature.title")}
-              subtitle={t("home.temperature.subtitle")}
-              rightSlot={<MaterialCommunityIcons name="thermometer" size={22} color={palette.sky700} />}
-            >
-              <StatusTag level={temp.level} text={temp.label} />
-            </Panel>
-          </View>
-          <View style={styles.col}>
-            <Panel
-              title={t("home.vibration.title")}
-              subtitle={t("home.vibration.subtitle")}
-              rightSlot={<MaterialCommunityIcons name="vibrate" size={22} color={palette.sky700} />}
-            >
-              <StatusTag level={vibration.level} text={vibration.label} />
-            </Panel>
-          </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="weather-windy"
+            title={t("home.wind.title")}
+            value={round(reading?.windSpeedMs, 1)}
+            unit="m/s"
+            helper={wind.message}
+            tone={windTone}
+          />
+          <MetricCard
+            icon="sine-wave"
+            title={t("home.acVoltage.title")}
+            value={round(reading?.outputVoltageAcV, 1)}
+            unit="V"
+            helper={acVoltage.label}
+            tone={acVoltage.level === "ok" ? "good" : acVoltage.level === "warn" ? "warn" : "danger"}
+          />
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </Panel>
+
+      <Panel
+        title={t("home.section.health.title")}
+        subtitle={t("home.section.health.subtitle")}
+        centerHeaderText
+        rightSlot={<MaterialCommunityIcons name="heart-pulse" size={22} color={palette.sky700} />}
+      >
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="thermometer"
+            title={t("home.temperature.title")}
+            value={round(reading?.genTempC, 1)}
+            unit="C"
+            helper={temp.label}
+            tone={temp.level === "ok" ? "good" : temp.level === "warn" ? "warn" : "danger"}
+          />
+          <MetricCard
+            icon="vibrate"
+            title={t("home.vibration.title")}
+            value={round(reading?.vibrationRms, 2)}
+            unit="m/s2"
+            helper={vibration.label}
+            tone={vibration.level === "ok" ? "good" : vibration.level === "warn" ? "warn" : "danger"}
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <MetricCard
+            icon="battery"
+            title={t("home.dcVoltage.title")}
+            value={round(reading?.genVoltageV, 1)}
+            unit="V"
+            helper={batteryVoltage.label}
+            tone={batteryVoltage.level === "ok" ? "good" : batteryVoltage.level === "warn" ? "warn" : "danger"}
+          />
+          <MetricCard
+            icon="compass-rose"
+            title={t("home.windDirection.title")}
+            value={windDirectionLabel(reading?.windDirectionDeg, language)}
+            helper={t("home.windDirection.subtitle")}
+            tone="neutral"
+          />
+        </View>
+      </Panel>
+    </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.md,
-  },
-  hero: {
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: "#7FD8FF",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    shadowColor: "#02679C",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
-  },
-  heroIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.22)",
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontFamily: fonts.title,
-    textAlign: "center",
-  },
-  heroSub: {
-    color: "#DDF4FF",
-    fontSize: 13,
-    fontFamily: fonts.bodySemi,
-    textAlign: "center",
-  },
-  metricValue: {
-    color: palette.text,
-    fontFamily: fonts.title,
-    fontSize: 30,
-    textAlign: "center",
-  },
-  metricLabel: {
-    marginTop: 4,
-    color: palette.sky700,
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    textTransform: "capitalize",
-    textAlign: "center",
-  },
-  infoText: {
-    marginTop: 6,
+  bodyText: {
     color: palette.textSoft,
     fontFamily: fonts.body,
     lineHeight: 20,
     textAlign: "center",
   },
-  iconLine: {
-    marginTop: 6,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    gap: 6,
+  contextStack: {
     width: "100%",
-  },
-  iconLineText: {
-    color: palette.textSoft,
-    fontFamily: fonts.bodySemi,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
-    maxWidth: "90%",
+    alignItems: "center",
+    gap: spacing.md,
   },
   alertList: {
     width: "100%",
-    gap: 8,
+    gap: spacing.sm,
   },
-  alertItem: {
+  alertRow: {
     width: "100%",
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: radius.md,
-    backgroundColor: "#F7FBFF",
+    backgroundColor: palette.cardSoft,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 9,
+    paddingVertical: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    gap: 10,
   },
-  alertText: {
+  alertDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 99,
+  },
+  alertRowText: {
+    flex: 1,
     color: palette.text,
     fontFamily: fonts.bodySemi,
     fontSize: 13,
-    textAlign: "center",
+    lineHeight: 18,
   },
-  row: {
+  metricGrid: {
     flexDirection: "row",
     gap: spacing.md,
   },
-  col: {
-    flex: 1,
-  },
 });
-

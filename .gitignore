@@ -15,8 +15,13 @@ app/mobile/.env
 **/web-build/
 **/.expo/
 **/.expo-shared/
+**/__pycache__/
+*.pyc
 
 # OS/editor
 .DS_Store
 Thumbs.db
 *.log
+
+# Local runtimes
+tools/.node-red-runtime/

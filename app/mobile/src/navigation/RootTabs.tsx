@@ -7,7 +7,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import { AlertsScreen } from "../screens/AlertsScreen";
 import { ProductionScreen } from "../screens/ProductionScreen";
 import { TechnicalScreen } from "../screens/TechnicalScreen";
-import { fonts, palette } from "../theme";
+import { fonts, palette, radius, shadows } from "../theme";
 import { useI18n } from "../i18n/LanguageContext";
 
 const Tabs = createBottomTabNavigator();
@@ -34,15 +34,21 @@ export const RootTabs = () => {
         initialRouteName="home"
         screenOptions={({ route }) => ({
           headerShown: false,
+          sceneStyle: { backgroundColor: palette.background },
           tabBarActiveTintColor: palette.sky700,
           tabBarInactiveTintColor: palette.textSoft,
           tabBarStyle: {
-            backgroundColor: palette.card,
-            borderTopColor: palette.line,
-            borderTopWidth: 1,
-            height: 58 + insets.bottom + 8,
-            paddingBottom: Math.max(8, insets.bottom),
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: 12,
+            height: 62 + insets.bottom,
+            paddingBottom: Math.max(10, insets.bottom),
             paddingTop: 8,
+            backgroundColor: "rgba(255,255,255,0.96)",
+            borderTopWidth: 0,
+            borderRadius: radius.lg,
+            ...shadows.card,
           },
           tabBarLabelStyle: {
             fontFamily: fonts.bodySemi,
@@ -53,7 +59,7 @@ export const RootTabs = () => {
               home: "home-variant-outline",
               alerts: "bell-alert-outline",
               production: "chart-bar",
-              technical: "wrench-cog-outline",
+              technical: "compass-rose",
             };
             return <MaterialCommunityIcons name={nameByRoute[route.name] as any} size={size + 1} color={color} />;
           },
