@@ -175,8 +175,14 @@ export class AiOperationalService {
   private normalizeFaultPrediction(row: TableRow | null): FaultPrediction | null {
     if (!row) return null;
 
+    const riskLevel = this.normalizeString(
+      this.pickRowValue(row, ["risk_level", "severity", "level", "priority"]),
+    );
     const label = this.normalizeString(
       this.pickRowValue(row, [
+        "top_reason",
+        "reason",
+        "root_cause",
         "fault_label",
         "predicted_fault",
         "prediction_label",
@@ -190,7 +196,9 @@ export class AiOperationalService {
     );
     const confidencePct = this.normalizePercent(
       this.pickNullableNumber(row, [
+        "risk_score",
         "confidence_pct",
+        "confidence_score",
         "confidence",
         "probability",
         "score",
@@ -206,11 +214,13 @@ export class AiOperationalService {
         "recommended_step",
         "maintenance_action",
         "next_step",
+        "recommended_response",
       ]),
     );
     const timestamp = this.normalizeTimestamp(
       this.pickRowValue(row, [
         "prediction_time",
+        "prediction_timestamp",
         "predicted_at",
         "created_at",
         "createdAt",
@@ -220,7 +230,7 @@ export class AiOperationalService {
       ]),
     );
     const severity = this.normalizeSeverity(
-      this.pickRowValue(row, ["severity", "risk_level", "level", "priority"]),
+      riskLevel,
       label,
       confidencePct,
     );
@@ -245,6 +255,8 @@ export class AiOperationalService {
 
     const predictedPowerW =
       this.pickNullableNumber(row, [
+        "pred_power",
+        "predicted_power",
         "predicted_power_w",
         "power_forecast_w",
         "forecast_power_w",
@@ -266,6 +278,7 @@ export class AiOperationalService {
       );
     const lowerBoundW =
       this.pickNullableNumber(row, [
+        "pred_power_lower",
         "lower_bound_w",
         "prediction_lower_w",
         "lower_w",
@@ -281,6 +294,7 @@ export class AiOperationalService {
       );
     const upperBoundW =
       this.pickNullableNumber(row, [
+        "pred_power_upper",
         "upper_bound_w",
         "prediction_upper_w",
         "upper_w",
@@ -305,6 +319,7 @@ export class AiOperationalService {
     const timestamp = this.normalizeTimestamp(
       this.pickRowValue(row, [
         "forecast_time",
+        "forecast_timestamp",
         "prediction_time",
         "predicted_at",
         "created_at",
@@ -335,6 +350,8 @@ export class AiOperationalService {
 
     const targetYawDeg = this.normalizeAngle(
       this.pickNullableNumber(row, [
+        "recommended_yaw_angle",
+        "recommended_yaw_angle_deg",
         "recommended_yaw_deg",
         "target_yaw_deg",
         "yaw_target_deg",
@@ -350,11 +367,18 @@ export class AiOperationalService {
       this.pickRowValue(row, ["reason", "rationale", "explanation", "note", "details"]),
     );
     const confidencePct = this.normalizePercent(
-      this.pickNullableNumber(row, ["confidence_pct", "confidence", "probability", "score"]),
+      this.pickNullableNumber(row, [
+        "confidence_score",
+        "confidence_pct",
+        "confidence",
+        "probability",
+        "score",
+      ]),
     );
     const timestamp = this.normalizeTimestamp(
       this.pickRowValue(row, [
         "recommendation_time",
+        "recommendation_timestamp",
         "created_at",
         "createdAt",
         "timestamp",

@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   Headers,
@@ -11,7 +12,6 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ReadingsService } from "./readings.service";
-import { JwtAuthGuard } from "../common/jwt.guard";
 import { IngestReadingDto } from "./dto.ingest";
 import { IngestApiKeyGuard } from "./ingest-api-key.guard";
 
@@ -20,8 +20,10 @@ export class ReadingsController {
   constructor(private readonly readings: ReadingsService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard)
   list(@Query("deviceId") deviceId?: string, @Query("farmId") farmId?: string, @Query("plotId") plotId?: string) {
+    if (!deviceId) {
+      throw new BadRequestException("deviceId es requerido para consultar historico publico.");
+    }
     return this.readings.list(deviceId, farmId, plotId);
   }
 

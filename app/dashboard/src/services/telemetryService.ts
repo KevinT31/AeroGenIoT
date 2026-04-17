@@ -22,28 +22,26 @@ export const telemetryService = {
       return createSyntheticHistory(latest || buildMockLatest(), range);
     }
 
-    if (ENV.accessToken) {
-      try {
-        const response = await apiClient.get<any[]>("/readings", {
-          params: {
-            deviceId: ENV.deviceId || undefined,
-            farmId: ENV.farmId || undefined,
-            plotId: ENV.plotId || undefined,
-          },
-          auth: true,
-        });
+    try {
+      const response = await apiClient.get<any[]>("/readings", {
+        params: {
+          deviceId: ENV.deviceId || undefined,
+          farmId: ENV.farmId || undefined,
+          plotId: ENV.plotId || undefined,
+        },
+        auth: Boolean(ENV.accessToken),
+      });
 
-        const points = response
-          .map(normalizeHistoryPoint)
-          .filter((point): point is TelemetryPoint => Boolean(point))
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      const points = response
+        .map(normalizeHistoryPoint)
+        .filter((point): point is TelemetryPoint => Boolean(point))
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-        if (points.length) {
-          return trimHistory(points, range);
-        }
-      } catch {
-        // Fallback to synthetic trend if the protected route is unavailable.
+      if (points.length) {
+        return trimHistory(points, range);
       }
+    } catch {
+      // Fallback to synthetic trend if the public/protected route is unavailable.
     }
 
     return createSyntheticHistory(latest || buildMockLatest(), range);
