@@ -12,6 +12,10 @@ const toBoolean = (raw: string | undefined, fallback = false) => {
 };
 
 const normalizeBase = (value: string | undefined) => String(value || "").trim().replace(/\/+$/, "");
+const normalizeLabel = (value: string | undefined, fallback: string) => {
+  const label = String(value || "").trim();
+  return label || fallback;
+};
 
 const apiBase = normalizeBase(process.env.EXPO_PUBLIC_API_BASE);
 
@@ -19,6 +23,7 @@ export const ENV = {
   apiBase,
   hasRemoteApi: Boolean(apiBase),
   deviceId: String(process.env.EXPO_PUBLIC_DEVICE_ID || "AE-01"),
+  deviceLabel: normalizeLabel(process.env.EXPO_PUBLIC_DEVICE_LABEL, "Aurora-01"),
   pollMs: Math.max(1000, toNumber(process.env.EXPO_PUBLIC_POLL_MS, 5000)),
   requestTimeoutMs: Math.max(3000, toNumber(process.env.EXPO_PUBLIC_REQUEST_TIMEOUT_MS, 12000)),
   staleAfterMs: Math.max(15000, toNumber(process.env.EXPO_PUBLIC_STALE_AFTER_MS, 90000)),

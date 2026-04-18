@@ -208,7 +208,7 @@ export const OverviewRoute = () => {
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{alarm.suggestedAction || alarm.description}</p>
                       </div>
                       <StatusPill tone={alarm.severity === "critical" ? "critical" : "warn"}>
-                        {alarm.severity}
+                        {translateDashboard(language, `alarm.severity.${alarm.severity}`)}
                       </StatusPill>
                     </div>
                   </div>

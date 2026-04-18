@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { mockAlerts } from "../../mock/data";
+import { AiOperationalService, OperationalAiSnapshot } from "../ai/ai-operational.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
 import { TelemetryTableService } from "../readings/telemetry-table.service";
@@ -198,6 +199,7 @@ export class AlertsService {
     private notifications: NotificationsService,
     private realtime: RealtimeGateway,
     private telemetryTable: TelemetryTableService,
+    private operationalAi: AiOperationalService,
   ) {}
 
   list(farmId?: string, status?: string) {
@@ -223,20 +225,23 @@ export class AlertsService {
   }
 
   private async loadRecentByDevice(deviceId: string) {
-    const alerts = await this.prisma.alert.findMany({
-      where: { deviceId },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
+    const [alerts, latest, ai] = await Promise.all([
+      this.prisma.alert.findMany({
+        where: { deviceId },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+      this.telemetryTable.isEnabled() ? this.telemetryTable.latest(deviceId) : Promise.resolve(null),
+      this.operationalAi.latest(deviceId),
+    ]);
 
-    if (!this.telemetryTable.isEnabled()) {
-      return alerts;
-    }
+    const derived = [
+      ...(latest ? this.buildDerivedTelemetryAlerts(latest) : []),
+      ...this.buildDerivedAiAlerts(ai),
+    ];
 
-    const latest = await this.telemetryTable.latest(deviceId);
-    if (!latest) return alerts;
-
-    return this.mergeAlerts(alerts, this.buildDerivedTelemetryAlerts(latest));
+    if (!derived.length) return alerts;
+    return this.mergeAlerts(alerts, derived);
   }
 
   async generateFromAerogeneratorReading(input: AerogeneratorAlertInput) {
@@ -949,6 +954,73 @@ export class AlertsService {
     push(inverterTemp > 55, "generator_temp_high", "Temperatura alta del inversor: revisar ventilacion y carga.", inverterTemp > 70 ? "critical" : "warning");
 
     return alerts;
+  }
+
+  private buildDerivedAiAlerts(ai: OperationalAiSnapshot | null) {
+    const fault = ai?.faultPrediction;
+    if (!fault?.label || fault.label === "nominal_operation") {
+      return [] as any[];
+    }
+
+    const label = String(fault.label).trim().toLowerCase();
+    const severity = fault.severity === "critical" ? "critical" : "warning";
+    const timestamp = String(fault.timestamp || ai?.updatedAt || new Date().toISOString());
+    const deviceId = ai?.deviceId ?? null;
+    const confidence = fault.confidencePct === null || fault.confidencePct === undefined
+      ? null
+      : Number(fault.confidencePct.toFixed(0));
+    const detail = confidence === null ? "IA operativa" : `IA operativa (${confidence}% de confianza)`;
+
+    const push = (type: string, message: string) => ({
+      id: `ai:${type}:${timestamp}`,
+      type,
+      status: "open",
+      message,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      severity,
+      deviceId,
+      farmId: null,
+      plotId: null,
+    });
+
+    if (label === "high_temp") {
+      return [
+        push(
+          "inverter_temp_high",
+          `${detail} anticipa temperatura alta del inversor: conviene programar revision preventiva.`,
+        ),
+      ];
+    }
+
+    if (label === "high_vibration") {
+      return [
+        push(
+          severity === "critical" ? "vibration_critical" : "vibration_high",
+          `${detail} anticipa vibracion alta del motor: conviene revisar rotor y soportes antes del siguiente ciclo exigente.`,
+        ),
+      ];
+    }
+
+    if (label === "low_battery") {
+      return [
+        push(
+          severity === "critical" ? "battery_critical" : "battery_low",
+          `${detail} anticipa reserva de bateria comprometida: reduzca consumo y revise autonomia.`,
+        ),
+      ];
+    }
+
+    if (label === "overload") {
+      return [
+        push(
+          "inverter_overload",
+          `${detail} anticipa condicion de sobrecarga: conviene revisar cargas y protecciones.`,
+        ),
+      ];
+    }
+
+    return [];
   }
 
   private mergeAlerts(remote: any[], derived: any[]) {

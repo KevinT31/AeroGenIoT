@@ -129,7 +129,7 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
   }, [loadSnapshot]);
 
   const markAlertReceived = useCallback(async (alertId: string) => {
-    if (alertId.startsWith("telemetry:")) {
+    if (alertId.startsWith("telemetry:") || alertId.startsWith("ai:")) {
       setAlerts((prev) =>
         sortAlertsByDate(
           prev.map((alert) =>

@@ -1,5 +1,6 @@
 import { Gauge, Sparkles, TriangleAlert, Wind } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { DashboardLanguage, translateDashboard } from "@/i18n/translations";
 import { AiOperationalSnapshot } from "@/types/dashboard";
 import { Panel } from "@/components/ui/Panel";
 import { cn } from "@/utils/cn";
@@ -43,6 +44,44 @@ const copy = {
     yawReason: "Recomendacion generada para el dispositivo activo.",
     updated: "Actualizado desde tablas IA",
   },
+  qu: {
+    eyebrow: "IA KAPA",
+    title: "Operativa prediccionkuna",
+    subtitle: "MySQL prediccion tablankunamanta kawsay ñawinchay.",
+    fault: "Probable falla",
+    power: "Potencia pronostico",
+    yaw: "Orientacion objetivo",
+    noData: "Mana prediccion",
+    confidence: "Confianza",
+    horizon: "Horizonte",
+    range: "Rango",
+    action: "Accion",
+    reason: "Motivo",
+    degrees: "gr",
+    minutes: "min",
+    align: "Gondolata kawsay wayra direccionwan alineay.",
+    yawReason: "Activo dispositivopaq rekomendasqa.",
+    updated: "IA tablankunamanta musuqchasqa",
+  },
+  zh: {
+    eyebrow: "AI 层",
+    title: "运行预测",
+    subtitle: "从 MySQL 预测表读取实时结果。",
+    fault: "可能故障",
+    power: "功率预测",
+    yaw: "偏航目标",
+    noData: "暂无预测",
+    confidence: "置信度",
+    horizon: "预测范围",
+    range: "区间",
+    action: "建议操作",
+    reason: "原因",
+    degrees: "度",
+    minutes: "分钟",
+    align: "使机舱与实时风向对齐。",
+    yawReason: "这是为当前设备生成的建议。",
+    updated: "已从 AI 表更新",
+  },
 } as const;
 
 const severityTone = {
@@ -52,14 +91,14 @@ const severityTone = {
 } as const;
 
 const faultLabels = {
-  high_temp: { en: "High inverter temperature", es: "Temperatura alta del inversor" },
-  high_vibration: { en: "High motor vibration", es: "Vibracion alta del motor" },
-  low_battery: { en: "Low battery reserve", es: "Reserva de bateria baja" },
-  overload: { en: "Overload risk", es: "Riesgo de sobrecarga" },
-  nominal_operation: { en: "Nominal operation", es: "Operacion nominal" },
+  high_temp: { en: "High inverter temperature", es: "Temperatura alta del inversor", qu: "Inversorpi alta temperatura", zh: "逆变器温度过高" },
+  high_vibration: { en: "High motor vibration", es: "Vibracion alta del motor", qu: "Motorpi alta vibracion", zh: "电机振动过高" },
+  low_battery: { en: "Low battery reserve", es: "Reserva de bateria baja", qu: "Bateria reserva pisi", zh: "电池储备偏低" },
+  overload: { en: "Overload risk", es: "Riesgo de sobrecarga", qu: "Sobrecarga riesgo", zh: "过载风险" },
+  nominal_operation: { en: "Nominal operation", es: "Operacion nominal", qu: "Normal operacion", zh: "正常运行" },
 } as const;
 
-const humanizeFaultLabel = (language: "en" | "es", label: string | null) => {
+const humanizeFaultLabel = (language: DashboardLanguage, label: string | null) => {
   if (!label) return copy[language].noData;
   const known = faultLabels[label as keyof typeof faultLabels];
   if (known) return known[language];
@@ -169,7 +208,7 @@ export const OperationalAiPanel = ({ ai }: { ai: AiOperationalSnapshot | null })
                       <Icon className="h-5 w-5 text-slate-900 dark:text-white" />
                     </div>
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em]", severityTone[card.badge])}>
-                      {card.badge}
+                      {translateDashboard(language, `alarm.severity.${card.badge}`)}
                     </span>
                   </div>
                   <div className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-500">

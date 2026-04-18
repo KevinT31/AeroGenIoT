@@ -17,9 +17,14 @@ const formatDirectionLabel = (value: number | null | undefined) => {
   return `${Math.round(value)}\u00B0`;
 };
 
-const formatDirection = (value: number | null | undefined) => {
-  if (value === null || value === undefined || Number.isNaN(value)) return "--";
-  return `${Math.round(value)}°`;
+const statusText = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  status: "normal" | "warning" | "critical" | "offline",
+) => {
+  if (status === "normal") return translateDashboard(language, "connectivity.live");
+  if (status === "warning") return translateDashboard(language, "overview.reserveStatus.watch");
+  if (status === "critical") return translateDashboard(language, "health.status.critical");
+  return translateDashboard(language, "health.status.offline");
 };
 
 export const DigitalTwinRoute = () => {
@@ -91,21 +96,7 @@ export const DigitalTwinRoute = () => {
                     </div>
                   </div>
                   <StatusPill tone={toneForState(sensor.status)}>
-                    {sensor.status === "normal"
-                      ? language === "es"
-                        ? "Activo"
-                        : "Live"
-                      : sensor.status === "warning"
-                        ? language === "es"
-                          ? "Vigilar"
-                          : "Watch"
-                        : sensor.status === "critical"
-                          ? language === "es"
-                            ? "Critico"
-                            : "Critical"
-                          : language === "es"
-                            ? "Sin senal"
-                            : "Offline"}
+                    {statusText(language, sensor.status)}
                   </StatusPill>
                 </div>
                 <div className="mt-3 font-mono text-sm text-slate-700 dark:text-slate-300">

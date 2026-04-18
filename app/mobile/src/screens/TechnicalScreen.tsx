@@ -8,9 +8,9 @@ import { ScreenLayout } from "../components/ScreenLayout";
 import { StatusTag } from "../components/StatusTag";
 import { ENV } from "../config/env";
 import { useI18n } from "../i18n/LanguageContext";
+import { AppLanguage } from "../i18n/translations";
 import { useAero } from "../state/AeroContext";
 import { fonts, palette, radius, spacing } from "../theme";
-import { AppLanguage } from "../i18n/translations";
 import {
   acVoltageState,
   estimateAutonomyHours,
@@ -23,86 +23,9 @@ import {
   windState,
 } from "../utils/format";
 
-const aiCopy = {
-  es: {
-    title: "IA operativa",
-    fault: "Falla probable",
-    power: "Pronostico",
-    yaw: "Orientacion",
-    noData: "Sin prediccion",
-    confidence: "Confianza",
-    horizon: "Horizonte",
-    range: "Rango",
-    action: "Accion",
-    reason: "Motivo",
-    align: "Alinear con la direccion viva del viento.",
-    yawReason: "Recomendacion calculada para el dispositivo activo.",
-  },
-  en: {
-    title: "Operational AI",
-    fault: "Probable fault",
-    power: "Forecast",
-    yaw: "Yaw target",
-    noData: "No prediction",
-    confidence: "Confidence",
-    horizon: "Horizon",
-    range: "Range",
-    action: "Action",
-    reason: "Reason",
-    align: "Align with the live wind direction.",
-    yawReason: "Recommendation generated for the active device.",
-  },
-  qu: {
-    title: "IA operativa",
-    fault: "Probable falla",
-    power: "Pronostico",
-    yaw: "Orientacion",
-    noData: "Mana prediccion kanchu",
-    confidence: "Confianza",
-    horizon: "Horizonte",
-    range: "Rango",
-    action: "Accion",
-    reason: "Motivo",
-    align: "Kunan wayra direccionwan alineay.",
-    yawReason: "Activo dispositivopaq rekomendasqa.",
-  },
-} as const;
-
-const faultLabels = {
-  high_temp: { es: "Temperatura alta del inversor", en: "High inverter temperature", qu: "Temperatura hatun" },
-  high_vibration: { es: "Vibracion alta del motor", en: "High motor vibration", qu: "Vibracion hatun" },
-  low_battery: { es: "Reserva de bateria baja", en: "Low battery reserve", qu: "Bateria pisi" },
-  overload: { es: "Riesgo de sobrecarga", en: "Overload risk", qu: "Sobrecarga peligru" },
-  nominal_operation: { es: "Operacion nominal", en: "Nominal operation", qu: "Allin operacion" },
-} as const;
-
-const humanizeFaultLabel = (language: AppLanguage, label: string | null) => {
-  if (!label) return aiCopy[language].noData;
-  const known = faultLabels[label as keyof typeof faultLabels];
-  if (known) return known[language];
-  return label
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (token) => token.toUpperCase());
-};
-
-const formatNumber = (value: number | null | undefined, digits = 0) =>
-  value === null || value === undefined || Number.isNaN(value) ? "--" : Number(value).toFixed(digits);
-
-const formatPower = (value: number | null | undefined) =>
-  value === null || value === undefined || Number.isNaN(value)
-    ? "--"
-    : `${Number(value).toFixed(value >= 1000 ? 0 : 1)} W`;
-
-const aiLevel = (severity: "info" | "warning" | "critical" | null | undefined) => {
-  if (severity === "critical") return "stop" as const;
-  if (severity === "warning") return "warn" as const;
-  return "ok" as const;
-};
-
 export const TechnicalScreen = () => {
-  const { reading, aiOperational, syncState, isConnectedRealtime, isRealtimeEnabled } = useAero();
+  const { reading, syncState, isConnectedRealtime, isRealtimeEnabled } = useAero();
   const { language, setLanguage, t } = useI18n();
-  const aiText = aiCopy[language];
   const wind = windState(reading?.windSpeedMs, language);
   const temp = temperatureState(reading?.genTempC, language);
   const vibration = vibrationState(reading?.vibrationRms, language);
@@ -117,6 +40,7 @@ export const TechnicalScreen = () => {
     { code: "es", key: "language.es" },
     { code: "en", key: "language.en" },
     { code: "qu", key: "language.qu" },
+    { code: "zh", key: "language.zh" },
   ];
 
   return (
@@ -319,51 +243,6 @@ export const TechnicalScreen = () => {
       </Panel>
 
       <Panel
-        title={aiText.title}
-        centerHeaderText
-        rightSlot={<MaterialCommunityIcons name="brain" size={22} color={palette.sky700} />}
-      >
-        <View style={styles.aiStack}>
-          <View style={styles.aiCard}>
-            <View style={styles.aiHeaderRow}>
-              <Text style={styles.aiLabel}>{aiText.fault}</Text>
-              <StatusTag level={aiLevel(aiOperational?.faultPrediction?.severity)} text={humanizeFaultLabel(language, aiOperational?.faultPrediction?.label ?? null)} />
-            </View>
-            <Text style={styles.aiValue}>{humanizeFaultLabel(language, aiOperational?.faultPrediction?.label ?? null)}</Text>
-            <Text style={styles.aiMeta}>
-              {aiText.confidence}: {formatNumber(aiOperational?.faultPrediction?.confidencePct ?? null, 0)}%
-            </Text>
-          </View>
-
-          <View style={styles.aiCard}>
-            <Text style={styles.aiLabel}>{aiText.power}</Text>
-            <Text style={styles.aiValue}>{formatPower(aiOperational?.powerForecast?.predictedPowerW ?? null)}</Text>
-            <Text style={styles.aiMeta}>
-              {aiText.horizon}: {formatNumber(aiOperational?.powerForecast?.horizonMinutes ?? null, 0)} min
-            </Text>
-            <Text style={styles.aiMeta}>
-              {aiText.range}: {formatPower(aiOperational?.powerForecast?.lowerBoundW ?? null)} - {formatPower(aiOperational?.powerForecast?.upperBoundW ?? null)}
-            </Text>
-          </View>
-
-          <View style={styles.aiCard}>
-            <Text style={styles.aiLabel}>{aiText.yaw}</Text>
-            <Text style={styles.aiValue}>
-              {aiOperational?.yawRecommendation?.targetYawDeg === null || aiOperational?.yawRecommendation?.targetYawDeg === undefined
-                ? aiText.noData
-                : `${formatNumber(aiOperational?.yawRecommendation?.targetYawDeg ?? null, 0)}°`}
-            </Text>
-            <Text style={styles.aiMeta}>
-              {aiText.action}: {aiOperational?.yawRecommendation?.action || aiText.align}
-            </Text>
-            <Text style={styles.aiMeta}>
-              {aiText.reason}: {aiOperational?.yawRecommendation?.reason || aiText.yawReason}
-            </Text>
-          </View>
-        </View>
-      </Panel>
-
-      <Panel
         title={t("language.panel.title")}
         centerHeaderText
         rightSlot={<MaterialCommunityIcons name="translate" size={22} color={palette.sky700} />}
@@ -432,46 +311,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     width: "100%",
     alignItems: "center",
-  },
-  aiStack: {
-    width: "100%",
-    gap: spacing.md,
-  },
-  aiCard: {
-    width: "100%",
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.cardSoft,
-    padding: spacing.md,
-    gap: 8,
-  },
-  aiHeaderRow: {
-    width: "100%",
-    gap: spacing.sm,
-    alignItems: "center",
-  },
-  aiLabel: {
-    color: palette.textSoft,
-    fontFamily: fonts.bodySemi,
-    fontSize: 12,
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 1.1,
-  },
-  aiValue: {
-    color: palette.text,
-    fontFamily: fonts.titleMedium,
-    fontSize: 18,
-    lineHeight: 24,
-    textAlign: "center",
-  },
-  aiMeta: {
-    color: palette.textSoft,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
   },
   languageRow: {
     width: "100%",

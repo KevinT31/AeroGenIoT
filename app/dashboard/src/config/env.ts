@@ -12,11 +12,16 @@ const toBoolean = (raw: string | undefined, fallback: boolean) => {
 };
 
 const normalizeBase = (value: string | undefined) => String(value || "").trim().replace(/\/+$/, "");
+const normalizeLabel = (value: string | undefined, fallback: string) => {
+  const label = String(value || "").trim();
+  return label || fallback;
+};
 
 export const ENV = {
   appName: "Aurora Noctua",
   apiBase: normalizeBase(import.meta.env.VITE_API_BASE),
   deviceId: String(import.meta.env.VITE_DEVICE_ID || "AE-01"),
+  deviceLabel: normalizeLabel(import.meta.env.VITE_DEVICE_LABEL, "Aurora-01"),
   farmId: String(import.meta.env.VITE_FARM_ID || ""),
   plotId: String(import.meta.env.VITE_PLOT_ID || ""),
   requestTimeoutMs: Math.max(3000, toNumber(import.meta.env.VITE_REQUEST_TIMEOUT_MS, 12000)),

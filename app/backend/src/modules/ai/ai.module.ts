@@ -28,5 +28,6 @@ import { AiPlantNetService } from "./pipeline/plantnet.service";
     AiLlmRecipeService,
     AiFusionService,
   ],
+  exports: [AiOperationalService],
 })
 export class AiModule {}

@@ -40,12 +40,8 @@ export const DashboardLayout = () => {
   } = useDashboardData();
   const connectivity = snapshot.health.connectivityStatus;
   const realtimeShort = isRealtimeConnected
-    ? language === "es"
-      ? "En vivo"
-      : "Live"
-    : language === "es"
-      ? "En espera"
-      : "Standby";
+    ? translateDashboard(language, "layout.realtimeOnline")
+    : translateDashboard(language, "layout.realtimeStandby");
   const updatedShort = snapshot.lastUpdatedAt
     ? timeAgo(snapshot.lastUpdatedAt, language)
     : "--";
@@ -91,14 +87,14 @@ export const DashboardLayout = () => {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-500">
                 {translateDashboard(language, "layout.device")}
               </p>
-              <p className="mt-2 font-display text-xl font-semibold text-slate-950 dark:text-white">{ENV.deviceId}</p>
+              <p className="mt-2 font-display text-xl font-semibold text-slate-950 dark:text-white">{ENV.deviceLabel}</p>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{snapshot.health.generationStatus}</p>
             </div>
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="glass-panel sticky top-0 z-40 mb-6 rounded-[30px] border px-5 py-4 lg:top-4">
+          <header className="glass-panel mb-6 rounded-[30px] border px-5 py-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="xl:shrink-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-500">

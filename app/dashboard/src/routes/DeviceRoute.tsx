@@ -1,5 +1,6 @@
 import { Panel } from "@/components/ui/Panel";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { ENV } from "@/config/env";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { connectivityLabel, formatDateTime, formatNumber } from "@/utils/format";
 import { translateDashboard } from "@/i18n/translations";
@@ -7,7 +8,8 @@ import { translateDashboard } from "@/i18n/translations";
 export const DeviceRoute = () => {
   const { snapshot, language } = useDashboardData();
   const openAlarms = snapshot.alarms.filter((alarm) => alarm.status === "open");
-  const hasVibrationSignal = snapshot.latest?.vibrationSignal !== null && snapshot.latest?.vibrationSignal !== undefined;
+  const hasVibrationSignal =
+    snapshot.latest?.vibrationSignal !== null && snapshot.latest?.vibrationSignal !== undefined;
   const windDirection =
     snapshot.latest?.windDirectionDeg === null || snapshot.latest?.windDirectionDeg === undefined
       ? "--"
@@ -27,13 +29,20 @@ export const DeviceRoute = () => {
             {translateDashboard(language, "device.profile")}
           </h3>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <InfoCard label={translateDashboard(language, "device.deviceId")} value={snapshot.health.deviceId} />
-            <InfoCard label={translateDashboard(language, "device.connectivity")} value={connectivityLabel(snapshot.health.connectivityStatus, language)} />
-            <InfoCard label={translateDashboard(language, "device.lastReading")} value={formatDateTime(snapshot.health.timestamp, language)} />
+            <InfoCard label={translateDashboard(language, "device.displayName")} value={ENV.deviceLabel} />
+            <InfoCard
+              label={translateDashboard(language, "device.connectivity")}
+              value={connectivityLabel(snapshot.health.connectivityStatus, language)}
+            />
+            <InfoCard
+              label={translateDashboard(language, "device.lastReading")}
+              value={formatDateTime(snapshot.health.timestamp, language)}
+            />
             <InfoCard label={translateDashboard(language, "device.windDirection")} value={windDirection} />
             <InfoCard label={translateDashboard(language, "device.battery")} value={`${formatNumber(snapshot.latest?.batteryPct, 0)} %`} />
             <InfoCard label={translateDashboard(language, "device.autonomy")} value={`${formatNumber(snapshot.latest?.estimatedAutonomyHours, 1)} h`} />
             <InfoCard label={translateDashboard(language, "device.activeAlarms")} value={String(openAlarms.length)} />
+            <InfoCard label={translateDashboard(language, "device.realDeviceId")} value={snapshot.health.deviceId} long />
           </div>
         </Panel>
 
@@ -56,7 +65,10 @@ export const DeviceRoute = () => {
             <MetricTile label={translateDashboard(language, "device.autonomy")} value={`${formatNumber(snapshot.latest?.estimatedAutonomyHours, 1)} h`} />
             <MetricTile label={translateDashboard(language, "device.rpm")} value={`${formatNumber(snapshot.latest?.rotorRpm, 0)} rpm`} />
             {hasVibrationSignal ? (
-              <MetricTile label={translateDashboard(language, "device.vibrationSignal")} value={formatNumber(snapshot.latest?.vibrationSignal, 3)} />
+              <MetricTile
+                label={translateDashboard(language, "device.vibrationSignal")}
+                value={formatNumber(snapshot.latest?.vibrationSignal, 3)}
+              />
             ) : null}
           </div>
         </Panel>

@@ -51,7 +51,53 @@ const describeDerivedAlarm = (type: string, latest: TelemetryPoint, language: Da
     rotor_rpm_out_of_range: `Rotor speed reached ${fixed(latest.rotorRpm, 0)} rpm.`,
   } satisfies Record<string, string>;
 
-  const dict: Record<string, string> = language === "es" ? es : en;
+  const qu = {
+    soc_low: `Carga estadonqa ${fixed(latest.batteryPct, 0)}%-man uraykurqan.`,
+    soc_critical: `Carga estadonqa ${fixed(latest.batteryPct, 0)}%-man uraykurqan hinaspa servicioqa peligropi kashan.`,
+    battery_voltage_low: `Bateria DC voltajeqa ${fixed(latest.genVoltageV, 1)} V-manta pisi kashan.`,
+    battery_voltage_high: `Bateria DC voltajeqa ${fixed(latest.genVoltageV, 1)} V-manta aswan hatun kashan.`,
+    battery_discharge_current_high: `Bateria descarga corrienteqa ${fixed(latest.genCurrentA, 1)} A-man chayarqan.`,
+    battery_charge_current_high: `Bateria carga corrienteqa ${fixed(latest.genCurrentA, 1)} A-man chayarqan.`,
+    ac_voltage_low: `AC lloqsimuyqa ${fixed(latest.outputVoltageAcV, 1)} V-man uraykurqan.`,
+    ac_voltage_high: `AC lloqsimuyqa ${fixed(latest.outputVoltageAcV, 1)} V-man wicharqan.`,
+    ac_current_high: `AC corrienteqa ${fixed(latest.outputCurrentAcA, 1)} A-man chayarqan.`,
+    house_power_high: `Wasipa demandanqa ${fixed(latest.loadPowerW, 0)} W-manta kashan.`,
+    supply_cut: `AC lloqsimuyqa ${fixed(latest.outputVoltageAcV, 1)} V-man uraykurqan hinaspa mana establechu.`,
+    inverter_temp_high: `Inversor temperaturaqa ${fixed(latest.genTempC, 1)} C-manta kashan.`,
+    low_wind: `Wayra velocidadqa ${fixed(latest.windSpeedMs, 1)} m/s-manta kashan.`,
+    high_wind: `Wayra velocidadqa ${fixed(latest.windSpeedMs, 1)} m/s-man wicharqan.`,
+    vibration_high: `Motor vibracionqa ${fixed(latest.vibrationRms, 2)} RMS-man chayarqan.`,
+    vibration_critical: `Motor vibracionqa ${fixed(latest.vibrationRms, 2)} RMS-man critico nivelpi chayarqan.`,
+    rotor_rpm_out_of_range: `Rotorqa ${fixed(latest.rotorRpm, 0)} rpm-man chayarqan.`,
+  } satisfies Record<string, string>;
+
+  const zh = {
+    soc_low: `电量已降至 ${fixed(latest.batteryPct, 0)}%。`,
+    soc_critical: `电量已降至 ${fixed(latest.batteryPct, 0)}%，存在供电中断风险。`,
+    battery_voltage_low: `电池直流电压为 ${fixed(latest.genVoltageV, 1)} V，低于建议范围。`,
+    battery_voltage_high: `电池直流电压为 ${fixed(latest.genVoltageV, 1)} V，高于建议范围。`,
+    battery_discharge_current_high: `电池放电电流达到 ${fixed(latest.genCurrentA, 1)} A。`,
+    battery_charge_current_high: `电池充电电流达到 ${fixed(latest.genCurrentA, 1)} A。`,
+    ac_voltage_low: `交流输出已降至 ${fixed(latest.outputVoltageAcV, 1)} V。`,
+    ac_voltage_high: `交流输出升至 ${fixed(latest.outputVoltageAcV, 1)} V。`,
+    ac_current_high: `交流电流达到 ${fixed(latest.outputCurrentAcA, 1)} A。`,
+    house_power_high: `住户当前负载为 ${fixed(latest.loadPowerW, 0)} W。`,
+    supply_cut: `交流输出降至 ${fixed(latest.outputVoltageAcV, 1)} V，供电不稳定。`,
+    inverter_temp_high: `逆变器温度为 ${fixed(latest.genTempC, 1)} C。`,
+    low_wind: `风速为 ${fixed(latest.windSpeedMs, 1)} m/s。`,
+    high_wind: `风速升至 ${fixed(latest.windSpeedMs, 1)} m/s。`,
+    vibration_high: `电机振动达到 ${fixed(latest.vibrationRms, 2)} RMS。`,
+    vibration_critical: `电机振动达到 ${fixed(latest.vibrationRms, 2)} RMS，已到严重等级。`,
+    rotor_rpm_out_of_range: `转子转速达到 ${fixed(latest.rotorRpm, 0)} rpm。`,
+  } satisfies Record<string, string>;
+
+  const dictByLanguage: Record<DashboardLanguage, Record<string, string>> = {
+    en,
+    es,
+    qu,
+    zh,
+  };
+  const dict = dictByLanguage[language] || en;
   return dict[type] || translateDashboard(language, "alarm.title.default");
 };
 
@@ -159,7 +205,13 @@ export const alertsService = {
   },
 
   async acknowledge(alertId: string, language: DashboardLanguage = "en") {
-    if (alertId.startsWith(derivedPrefix)) return null;
+    if (
+      alertId.startsWith(derivedPrefix) ||
+      alertId.startsWith("telemetry:") ||
+      alertId.startsWith("ai:")
+    ) {
+      return null;
+    }
     if (ENV.useMockData || !apiClient.hasApi) return null;
     const response = await apiClient.post<any>(`/alerts/${alertId}/ack`);
     return normalizeAlarm(response, language);

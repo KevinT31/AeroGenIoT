@@ -50,6 +50,12 @@ export const AlarmCard = ({
       ? alarm.type.replace(/_/g, " ")
       : translateDashboard(lang, alarmTypeKey);
   const keepIconLeft = keepIconLeftByType.has(alarm.type);
+  const canAcknowledge =
+    Boolean(onAcknowledge) &&
+    alarm.status === "open" &&
+    !alarm.id.startsWith("derived:") &&
+    !alarm.id.startsWith("telemetry:") &&
+    !alarm.id.startsWith("ai:");
   const titleBlock = (
     <div className="min-w-0 flex-1">
       <h3 className="font-display text-lg font-semibold text-slate-950 dark:text-white">{alarm.title}</h3>
@@ -100,10 +106,10 @@ export const AlarmCard = ({
             {statusLabel}
           </div>
 
-          {onAcknowledge && alarm.status === "open" && !alarm.id.startsWith("derived:") ? (
+          {canAcknowledge ? (
             <button
               type="button"
-              onClick={() => onAcknowledge(alarm.id)}
+              onClick={() => onAcknowledge?.(alarm.id)}
               className="inline-flex items-center gap-2 rounded-full bg-noctua-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-noctua-600 dark:bg-noctua-500 dark:hover:bg-noctua-400"
             >
               <CheckCircle2 className="h-4 w-4" />

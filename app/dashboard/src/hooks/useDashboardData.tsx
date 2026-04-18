@@ -39,18 +39,18 @@ type DashboardContextShape = {
   toggleLanguage: () => void;
 };
 
-const emptyHealth: SystemHealthSnapshot = {
+const buildEmptyHealth = (language: DashboardLanguage): SystemHealthSnapshot => ({
   deviceId: ENV.deviceId,
   timestamp: null,
   connectivityStatus: "empty",
   overallStatus: "offline",
   healthScore: 0,
   activeAlertsCount: 0,
-  maintenanceStatus: "Awaiting data",
-  generationStatus: "No live telemetry",
-  batteryStatus: "Unknown",
-  recommendedAction: "Configure the data source to start the control center.",
-};
+  maintenanceStatus: translateDashboard(language, "health.awaitingData"),
+  generationStatus: translateDashboard(language, "health.noLiveData"),
+  batteryStatus: translateDashboard(language, "health.unknownBattery"),
+  recommendedAction: translateDashboard(language, "health.restoreDataFlow"),
+});
 
 const emptyTwin: DigitalTwinState = {
   rotorStatus: "offline",
@@ -71,16 +71,16 @@ const emptyTwin: DigitalTwinState = {
   warnings: [],
 };
 
-const emptySnapshot: DashboardSnapshot = {
+const buildEmptySnapshot = (language: DashboardLanguage): DashboardSnapshot => ({
   latest: null,
   history: [],
   alarms: [],
   maintenance: [],
   ai: null,
-  health: emptyHealth,
+  health: buildEmptyHealth(language),
   twin: emptyTwin,
   lastUpdatedAt: null,
-};
+});
 
 const DashboardDataContext = createContext<DashboardContextShape | null>(null);
 
@@ -99,8 +99,12 @@ const applyTheme = (mode: ThemeMode) => {
 const readLanguagePreference = (): DashboardLanguage => {
   if (typeof window === "undefined") return "en";
   const stored = window.localStorage.getItem("aurora-noctua-language");
-  if (stored === "es" || stored === "en") return stored;
-  return window.navigator.language.toLowerCase().startsWith("es") ? "es" : "en";
+  if (stored === "es" || stored === "en" || stored === "qu" || stored === "zh") return stored;
+  const browserLanguage = window.navigator.language.toLowerCase();
+  if (browserLanguage.startsWith("es")) return "es";
+  if (browserLanguage.startsWith("qu")) return "qu";
+  if (browserLanguage.startsWith("zh")) return "zh";
+  return "en";
 };
 
 const mergeAlarm = (prev: AlarmItem[], incoming: AlarmItem) =>
@@ -109,7 +113,7 @@ const mergeAlarm = (prev: AlarmItem[], incoming: AlarmItem) =>
   );
 
 export const DashboardDataProvider = ({ children }: { children: React.ReactNode }) => {
-  const [snapshot, setSnapshot] = useState<DashboardSnapshot>(emptySnapshot);
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot>(() => buildEmptySnapshot(readLanguagePreference()));
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
@@ -131,7 +135,7 @@ export const DashboardDataProvider = ({ children }: { children: React.ReactNode 
         .filter((alarm) => !alertsService.isDerived(alarm))
         .map((alarm) => relocalizeAlarm(alarm, language));
       const effectiveAlarms = alertsService.enrichOperational(latest, localizedRemoteAlarms, language);
-      const maintenance = maintenanceService.derive(latest, history, effectiveAlarms, language);
+      const maintenance = maintenanceService.derive(latest, history, effectiveAlarms, ai, language);
       const health = deviceStatusService.computeHealth(latest, effectiveAlarms, connectivity, language);
       const twin = digitalTwinService.build(latest, connectivity, language);
 
@@ -165,7 +169,7 @@ export const DashboardDataProvider = ({ children }: { children: React.ReactNode 
         setSnapshot(composeSnapshot(latest, history, alarms, ai, false));
         setErrorMessage(null);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
+        const message = error instanceof Error ? error.message : translateDashboard(language, "common.unknown");
         setErrorMessage(message);
         setSnapshot((current) => composeSnapshot(current.latest, current.history, current.alarms, current.ai, true));
       } finally {
@@ -221,7 +225,7 @@ export const DashboardDataProvider = ({ children }: { children: React.ReactNode 
   }, [themeMode]);
 
   useEffect(() => {
-    document.documentElement.lang = language;
+    document.documentElement.lang = language === "zh" ? "zh-CN" : language;
     window.localStorage.setItem("aurora-noctua-language", language);
     setSnapshot((current) => composeSnapshot(current.latest, current.history, current.alarms, current.ai, Boolean(errorMessage)));
   }, [composeSnapshot, errorMessage, language]);
@@ -236,7 +240,7 @@ export const DashboardDataProvider = ({ children }: { children: React.ReactNode 
       if (!updated) return;
       setSnapshot((current) => composeSnapshot(current.latest, current.history, mergeAlarm(current.alarms, updated), current.ai, false));
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to acknowledge alarm.");
+      setErrorMessage(error instanceof Error ? error.message : translateDashboard(language, "common.unknown"));
     }
   }, [composeSnapshot, language]);
 
@@ -245,7 +249,11 @@ export const DashboardDataProvider = ({ children }: { children: React.ReactNode 
   }, []);
 
   const toggleLanguage = useCallback(() => {
-    setLanguage((current) => (current === "en" ? "es" : "en"));
+    setLanguage((current) => {
+      const sequence: DashboardLanguage[] = ["es", "en", "qu", "zh"];
+      const index = sequence.indexOf(current);
+      return sequence[(index + 1) % sequence.length];
+    });
   }, []);
 
   const value = useMemo<DashboardContextShape>(

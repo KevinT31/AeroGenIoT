@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HomeScreen } from "../screens/HomeScreen";
 import { AlertsScreen } from "../screens/AlertsScreen";
 import { ProductionScreen } from "../screens/ProductionScreen";
+import { AiScreen } from "../screens/AiScreen";
 import { TechnicalScreen } from "../screens/TechnicalScreen";
 import { fonts, palette, radius, shadows } from "../theme";
 import { useI18n } from "../i18n/LanguageContext";
@@ -57,8 +58,9 @@ export const RootTabs = () => {
           tabBarIcon: ({ color, size }) => {
             const nameByRoute: Record<string, string> = {
               home: "home-variant-outline",
-              alerts: "bell-alert-outline",
               production: "chart-bar",
+              alerts: "bell-alert-outline",
+              ai: "brain",
               technical: "compass-rose",
             };
             return <MaterialCommunityIcons name={nameByRoute[route.name] as any} size={size + 1} color={color} />;
@@ -66,8 +68,9 @@ export const RootTabs = () => {
         })}
       >
         <Tabs.Screen name="home" component={HomeScreen} options={{ title: t("tab.home") }} />
-        <Tabs.Screen name="alerts" component={AlertsScreen} options={{ title: t("tab.alerts") }} />
         <Tabs.Screen name="production" component={ProductionScreen} options={{ title: t("tab.production") }} />
+        <Tabs.Screen name="alerts" component={AlertsScreen} options={{ title: t("tab.alerts") }} />
+        <Tabs.Screen name="ai" component={AiScreen} options={{ title: t("tab.ai") }} />
         <Tabs.Screen name="technical" component={TechnicalScreen} options={{ title: t("tab.technical") }} />
       </Tabs.Navigator>
     </NavigationContainer>

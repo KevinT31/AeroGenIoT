@@ -125,7 +125,7 @@ export const MaintenanceLane = ({
   );
 };
 
-const ruleLabel = (sourceRule: string, language: "en" | "es") => {
+const ruleLabel = (sourceRule: string, language: ReturnType<typeof useDashboardData>["language"]) => {
   const key = `maintenance.rule.${sourceRule}`;
   const translated = translateDashboard(language, key);
   if (translated === key) return sourceRule;

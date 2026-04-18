@@ -36,24 +36,19 @@ const statusTone = {
   offline: "offline" as const,
 };
 
-const statusLabels = {
-  en: {
-    normal: "Nominal",
-    warning: "Watch",
-    critical: "Critical",
-    offline: "Offline",
-  },
-  es: {
-    normal: "Nominal",
-    warning: "Atencion",
-    critical: "Critico",
-    offline: "Sin senal",
-  },
-};
-
 const formatDirectionLabel = (value: number | null | undefined) => {
   if (value === null || value === undefined || Number.isNaN(value)) return "--";
   return `${Math.round(value)}\u00B0`;
+};
+
+const componentStatusLabel = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  status: keyof typeof statusTone,
+) => {
+  if (status === "normal") return translateDashboard(language, "health.status.nominal");
+  if (status === "warning") return translateDashboard(language, "overview.reserveStatus.watch");
+  if (status === "critical") return translateDashboard(language, "health.status.critical");
+  return translateDashboard(language, "health.status.offline");
 };
 
 const buildAlertVisuals = (alarms: AlarmItem[]): TwinAlertVisuals => {
@@ -188,7 +183,7 @@ export const DigitalTwin2D = ({
                 {translateDashboard(language, "twin.title")}
               </p>
               <StatusPill tone={statusTone[twin.generatorStatus]} className="shrink-0 whitespace-nowrap">
-                {statusLabels[language][twin.generatorStatus]}
+                {componentStatusLabel(language, twin.generatorStatus)}
               </StatusPill>
               <StatusPill tone={statusTone[twin.connectivityStatus]} className="shrink-0 whitespace-nowrap">
                 {connectivityStatusLabel}
@@ -347,7 +342,7 @@ const ComponentStateCard = ({
   caption: string;
   status: keyof typeof toneClasses;
   value: string;
-  language: "en" | "es";
+  language: ReturnType<typeof useDashboardData>["language"];
 }) => (
   <div className="rounded-[24px] border border-slate-300/80 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-black/20">
     <div className="flex items-start justify-between gap-3">
@@ -370,7 +365,7 @@ const ComponentStateCard = ({
         </div>
       </div>
       <StatusPill tone={statusTone[status]}>
-        {statusLabels[language][status]}
+        {componentStatusLabel(language, status)}
       </StatusPill>
     </div>
     <div className="mt-4 font-mono text-sm text-slate-700 dark:text-slate-300">
