@@ -27,6 +27,69 @@ const statusText = (
   return translateDashboard(language, "health.status.offline");
 };
 
+const sourceLabel = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  sourceNow: "WIND" | "BATTERY" | "BOTH" | null | undefined,
+) => {
+  if (sourceNow === "WIND") return translateDashboard(language, "source.wind");
+  if (sourceNow === "BATTERY") return translateDashboard(language, "source.battery");
+  if (sourceNow === "BOTH") return translateDashboard(language, "source.hybrid");
+  return translateDashboard(language, "source.unknown");
+};
+
+const sourceNarrative = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  sourceNow: "WIND" | "BATTERY" | "BOTH" | null | undefined,
+) => {
+  if (sourceNow === "WIND") return translateDashboard(language, "source.narrative.wind");
+  if (sourceNow === "BATTERY") return translateDashboard(language, "source.narrative.battery");
+  if (sourceNow === "BOTH") return translateDashboard(language, "source.narrative.hybrid");
+  return translateDashboard(language, "source.waiting");
+};
+
+const batteryFlowNarrative = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  powerW: number | null | undefined,
+) => {
+  if (powerW === null || powerW === undefined) return translateDashboard(language, "source.waiting");
+  if (powerW > 60) return translateDashboard(language, "health.generationSupports");
+  if (powerW < -60) return translateDashboard(language, "source.narrative.wind");
+  return translateDashboard(language, "health.reserveNormal");
+};
+
+const outputNarrative = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  outputVoltageAcV: number | null | undefined,
+) => {
+  if (outputVoltageAcV === null || outputVoltageAcV === undefined) return translateDashboard(language, "health.noLiveData");
+  if (outputVoltageAcV < 50) return translateDashboard(language, "health.outputCut");
+  if (outputVoltageAcV < 210 || outputVoltageAcV > 240) return translateDashboard(language, "health.outputWatch");
+  return translateDashboard(language, "health.outputStable");
+};
+
+const reserveNarrative = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  batteryPct: number | null | undefined,
+) => {
+  if (batteryPct === null || batteryPct === undefined) return translateDashboard(language, "health.unknownBattery");
+  if (batteryPct < 20) return translateDashboard(language, "health.reserveLow");
+  if (batteryPct < 40) return translateDashboard(language, "health.reserveWatch");
+  return translateDashboard(language, "health.reserveNormal");
+};
+
+const reserveValueLabel = (
+  batteryPct: number | null | undefined,
+  autonomyHours: number | null | undefined,
+) => {
+  const pct = batteryPct === null || batteryPct === undefined ? null : `${formatNumber(batteryPct, 0)} %`;
+  const autonomy = autonomyHours === null || autonomyHours === undefined ? null : `${formatNumber(autonomyHours, 1)} h`;
+
+  if (pct && autonomy) return `${pct} · ${autonomy}`;
+  if (pct) return pct;
+  if (autonomy) return autonomy;
+  return "--";
+};
+
 export const DigitalTwinRoute = () => {
   const { snapshot, language } = useDashboardData();
 
@@ -57,11 +120,27 @@ export const DigitalTwinRoute = () => {
     },
   ];
 
-  const liveResponses = [
-    translateDashboard(language, "twin.response.wind"),
-    translateDashboard(language, "twin.response.vibration"),
-    translateDashboard(language, "twin.response.temperature"),
-    translateDashboard(language, "twin.response.electrical"),
+  const operationalSummary = [
+    {
+      label: translateDashboard(language, "overview.sourceNow"),
+      value: sourceLabel(language, snapshot.latest?.sourceNow),
+      helper: sourceNarrative(language, snapshot.latest?.sourceNow),
+    },
+    {
+      label: translateDashboard(language, "telemetry.batteryPower"),
+      value: `${formatNumber(snapshot.latest?.powerW, 0)} W`,
+      helper: batteryFlowNarrative(language, snapshot.latest?.powerW),
+    },
+    {
+      label: translateDashboard(language, "telemetry.housePower"),
+      value: `${formatNumber(snapshot.latest?.loadPowerW, 0)} W`,
+      helper: outputNarrative(language, snapshot.latest?.outputVoltageAcV),
+    },
+    {
+      label: translateDashboard(language, "overview.batterySection"),
+      value: reserveValueLabel(snapshot.latest?.batteryPct, snapshot.latest?.estimatedAutonomyHours),
+      helper: reserveNarrative(language, snapshot.latest?.batteryPct),
+    },
   ];
 
   const focusItems = snapshot.twin.warnings.length
@@ -77,10 +156,7 @@ export const DigitalTwinRoute = () => {
           <h3 className="font-display text-xl font-semibold text-slate-950 dark:text-white">
             {translateDashboard(language, "twin.routeHardwareTitle")}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-            {translateDashboard(language, "twin.routeHardwareDescription")}
-          </p>
-          <div className="mt-5 space-y-3">
+          <div className="mt-4 space-y-3">
             {sensorMap.map((sensor) => (
               <div
                 key={sensor.title}
@@ -111,16 +187,21 @@ export const DigitalTwinRoute = () => {
           <h3 className="font-display text-xl font-semibold text-slate-950 dark:text-white">
             {translateDashboard(language, "twin.routeResponsesTitle")}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-            {translateDashboard(language, "twin.routeResponsesDescription")}
-          </p>
-          <div className="mt-5 space-y-3">
-            {liveResponses.map((response) => (
+          <div className="mt-4 space-y-3">
+            {operationalSummary.map((item) => (
               <div
-                key={response}
-                className="rounded-2xl border border-slate-300/80 bg-slate-50/80 px-4 py-4 text-sm leading-6 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                key={item.label}
+                className="rounded-2xl border border-slate-300/80 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-white/5"
               >
-                {response}
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-500">
+                  {item.label}
+                </div>
+                <div className="mt-2 font-display text-lg font-semibold text-slate-950 dark:text-white">
+                  {item.value}
+                </div>
+                <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
+                  {item.helper}
+                </div>
               </div>
             ))}
           </div>
@@ -130,10 +211,7 @@ export const DigitalTwinRoute = () => {
           <h3 className="font-display text-xl font-semibold text-slate-950 dark:text-white">
             {translateDashboard(language, "twin.routeFocusTitle")}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-            {translateDashboard(language, "twin.routeFocusDescription")}
-          </p>
-          <div className="mt-5 space-y-3">
+          <div className="mt-4 space-y-3">
             {focusItems.map((item) => (
               <div
                 key={item}

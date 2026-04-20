@@ -61,55 +61,58 @@ export const MaintenanceLane = ({
           {items.length ? (
             items.map((item) => (
               <div key={item.id} className="rounded-[22px] border border-slate-300/80 bg-white/85 p-4 shadow-sm dark:border-white/10 dark:bg-black/20">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-500">
                       <Wrench className="h-3.5 w-3.5" />
-                      {item.component}
+                      {componentLabel(item.component, language)}
                     </div>
-                    <h4 className="mt-2 font-display text-lg font-semibold text-slate-950 dark:text-white">{item.title}</h4>
-                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{item.description}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em]", priorityTone[item.priority])}>
+                        {translateDashboard(language, `maintenance.priority.${item.priority}`)}
+                      </span>
+                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em]", statusTone[item.status])}>
+                        {translateDashboard(language, `maintenance.status.${item.status}`)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em]", priorityTone[item.priority])}>
-                      {item.priority}
-                    </span>
-                    <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em]", statusTone[item.status])}>
-                      {translateDashboard(language, `maintenance.status.${item.status}`)}
-                    </span>
+
+                  <div className="space-y-2">
+                    <h4 className="font-display text-lg font-semibold text-slate-950 dark:text-white">{item.title}</h4>
+                    <p className="max-w-none text-sm leading-8 text-slate-600 dark:text-slate-400">{item.description}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/75 p-3 text-sm text-slate-600 dark:border-white/10 dark:bg-black/15 dark:text-slate-300">
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white">
+                <div className="mt-4 space-y-4 rounded-2xl border border-slate-200/70 bg-slate-50/75 p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-black/15 dark:text-slate-300">
+                  <div className="space-y-1.5">
+                    <div className="font-semibold text-slate-900 dark:text-white">
                       {translateDashboard(language, "maintenance.trigger")}:
-                    </span>{" "}
-                    {ruleLabel(item.sourceRule, language)}
+                    </div>
+                    <div className="leading-7">{ruleLabel(item.sourceRule, language)}</div>
                   </div>
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white">
+                  <div className="space-y-1.5">
+                    <div className="font-semibold text-slate-900 dark:text-white">
                       {translateDashboard(language, "maintenance.executionPlan")}:
-                    </span>{" "}
-                    {translateDashboard(language, `maintenance.plan.${item.category}`)}
+                    </div>
+                    <div className="leading-7">{translateDashboard(language, `maintenance.plan.${item.category}`)}</div>
                   </div>
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white">
+                  <div className="space-y-1.5">
+                    <div className="font-semibold text-slate-900 dark:text-white">
                       {translateDashboard(language, "maintenance.recommendedAction")}:
-                    </span>{" "}
-                    {item.recommendedAction}
+                    </div>
+                    <div className="leading-7">{item.recommendedAction}</div>
                   </div>
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white">
+                  <div className="space-y-1.5">
+                    <div className="font-semibold text-slate-900 dark:text-white">
                       {translateDashboard(language, "maintenance.closeCriteria")}:
-                    </span>{" "}
-                    {translateDashboard(language, `maintenance.close.${item.category}`)}
+                    </div>
+                    <div className="leading-7">{translateDashboard(language, `maintenance.close.${item.category}`)}</div>
                   </div>
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white">
+                  <div className="space-y-1.5">
+                    <div className="font-semibold text-slate-900 dark:text-white">
                       {translateDashboard(language, "maintenance.nextCheckpoint")}:
-                    </span>{" "}
-                    {formatDateTime(item.dueDate, language)}
+                    </div>
+                    <div className="leading-7">{formatDateTime(item.dueDate, language)}</div>
                   </div>
                 </div>
               </div>
@@ -126,8 +129,48 @@ export const MaintenanceLane = ({
 };
 
 const ruleLabel = (sourceRule: string, language: ReturnType<typeof useDashboardData>["language"]) => {
-  const key = `maintenance.rule.${sourceRule}`;
+  const normalizedRule =
+    sourceRule === "thermal-threshold-crossed"
+      ? "temp-above-threshold"
+      : sourceRule;
+
+  const key = `maintenance.rule.${normalizedRule}`;
   const translated = translateDashboard(language, key);
   if (translated === key) return sourceRule;
   return translated;
+};
+
+const componentLabel = (
+  component: string,
+  language: ReturnType<typeof useDashboardData>["language"],
+) => {
+  const normalized = component.trim().toLowerCase();
+
+  const key =
+    normalized === "electrical system"
+      ? "maintenance.component.electrical_system"
+      : normalized === "inverter and rotor support"
+        ? "maintenance.component.inverter_rotor_support"
+        : normalized === "inverter / controller"
+          ? "maintenance.component.inverter_controller"
+          : normalized === "rotor"
+            ? "maintenance.component.rotor"
+            : normalized === "generator"
+              ? "maintenance.component.generator"
+              : normalized === "inverter"
+                ? "maintenance.component.inverter"
+                : normalized === "battery"
+                  ? "maintenance.component.battery"
+                  : normalized === "power stage"
+                    ? "maintenance.component.power_stage"
+                    : normalized === "wind capture and reserve"
+                      ? "maintenance.component.wind_capture_reserve"
+                      : normalized === "yaw alignment"
+                        ? "maintenance.component.yaw_alignment"
+                        : null;
+
+  if (!key) return component;
+
+  const translated = translateDashboard(language, key);
+  return translated === key ? component : translated;
 };

@@ -13,27 +13,18 @@ import {
 } from "@/i18n/translations";
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const round = (value: number, digits = 2) => Number(value.toFixed(digits));
+const wrapAngle = (value: number) => ((value % 360) + 360) % 360;
+const wave = (minutes: number, periodMinutes: number, phase = 0) =>
+  Math.sin(((minutes / periodMinutes) + phase) * Math.PI * 2);
+const positive = (value: number) => (value + 1) / 2;
 
-const mockScenario = {
-  windSpeedMs: 2.8,
-  windDirectionDeg: 236,
-  genVoltageV: 45.6,
-  genCurrentA: 18.7,
-  outputVoltageAcV: 219.4,
-  outputCurrentAcA: 3.1,
-  vibrationRms: 4.36,
-  vibrationSignal: 0.472,
-  genTempC: 57.8,
-  rotorRpm: 618,
-  batteryPct: 18,
-  loadPowerW: 680,
-  powerW: 853,
-  estimatedAutonomyHours: 0.8,
-  energyTodayKwh: 4.7,
-  sourceNow: "BATTERY" as const,
-  sourceReason: "Low wind keeps the battery supporting the household load.",
-  mode: "mock",
-};
+const BATTERY_CAPACITY_KWH = 4.8;
+const INVERTER_EFFICIENCY = 0.93;
+const WIND_CUT_IN_MPS = 2.3;
+const WIND_RATED_MPS = 11;
+const MAX_GENERATION_W = 1700;
+const MAX_ROTOR_RPM = 760;
 
 const rangeCount: Record<TimeRange, number> = {
   "1h": 12,
@@ -52,61 +43,148 @@ const rangeStepMinutes: Record<TimeRange, number> = {
 export const createSyntheticHistory = (latest: TelemetryPoint | null, range: TimeRange): TelemetryPoint[] => {
   const count = rangeCount[range];
   const stepMinutes = rangeStepMinutes[range];
-  const now = latest?.timestamp ? new Date(latest.timestamp) : new Date();
-  const base = latest || buildMockLatest();
-
-  return Array.from({ length: count }, (_, index) => {
+  const anchor = latest?.timestamp ? new Date(latest.timestamp) : new Date();
+  const points = Array.from({ length: count }, (_, index) => {
     const age = count - index - 1;
-    const timestamp = new Date(now.getTime() - age * stepMinutes * 60_000);
-    const progress = index / Math.max(1, count - 1);
-    const pull = 1 - progress;
-    const wave = Math.sin((index + 1) * 0.45);
-    const waveB = Math.cos((index + 1) * 0.21);
-
-    const wind = clamp((base.windSpeedMs ?? 2.8) + pull * 4.8 + wave * 0.7 + waveB * 0.3, 0, 28);
-    const windDirection = (((base.windDirectionDeg ?? 236) - pull * 28 + index * 3 + wave * 12) % 360 + 360) % 360;
-    const voltage = clamp((base.genVoltageV ?? 45.6) + pull * 2.4 + waveB * 0.5, 42, 58);
-    const current = clamp((base.genCurrentA ?? 18.7) - pull * 6.2 + wave * 1.1, 0, 36);
-    const power = clamp(voltage * current, 0, 2800);
-    const acVoltage = clamp((base.outputVoltageAcV ?? 219.4) + pull * 8.1 + wave * 2.2, 180, 252);
-    const acCurrent = clamp((base.outputCurrentAcA ?? 3.1) + waveB * 0.22 + pull * 0.18, 0, 18);
-    const load = clamp((base.loadPowerW ?? 680) + waveB * 70 + pull * 60, 120, 2800);
-    const battery = clamp((base.batteryPct ?? 18) + pull * 19 + waveB * 2.4, 5, 100);
-    const vibration = clamp((base.vibrationRms ?? 4.36) - pull * 0.7 + Math.abs(wave) * 0.55, 0.2, 12);
-    const vibrationSignal = clamp((base.vibrationSignal ?? 0.472) - pull * 0.06 + wave * 0.025, 0.05, 1.2);
-    const temp = clamp((base.genTempC ?? 57.8) - pull * 6.4 + Math.abs(wave) * 2.1, 22, 96);
-    const rotorRpm = clamp((base.rotorRpm ?? 618) + pull * 74 + waveB * 18, 0, 980);
-    const autonomy = load > 0 ? clamp(((battery / 100) * 3 / (load / 1000)), 0, 16) : null;
-
-    return {
-      timestamp: timestamp.toISOString(),
-      windSpeedMs: Number(wind.toFixed(2)),
-      windDirectionDeg: Number(windDirection.toFixed(0)),
-      genVoltageV: Number(voltage.toFixed(2)),
-      genCurrentA: Number(current.toFixed(2)),
-      outputVoltageAcV: Number(acVoltage.toFixed(1)),
-      outputCurrentAcA: Number(acCurrent.toFixed(2)),
-      vibrationRms: Number(vibration.toFixed(2)),
-      vibrationSignal: Number(vibrationSignal.toFixed(3)),
-      genTempC: Number(temp.toFixed(2)),
-      rotorRpm: Number(rotorRpm.toFixed(0)),
-      batteryPct: Number(battery.toFixed(0)),
-      estimatedAutonomyHours: autonomy === null ? null : Number(autonomy.toFixed(1)),
-      loadPowerW: Number(load.toFixed(0)),
-      powerW: Number(power.toFixed(0)),
-      energyTodayKwh: Number(((base.energyTodayKwh ?? 4.7) * (0.48 + progress * 0.52)).toFixed(2)),
-      sourceNow: wind < 3.5 ? "BATTERY" : power >= load ? "WIND" : "BOTH",
-      sourceReason: null,
-      mode: base.mode ?? "mock",
-    };
+    const timestamp = new Date(anchor.getTime() - age * stepMinutes * 60_000);
+    return buildSyntheticTelemetryPoint(timestamp);
   });
+
+  if (latest) {
+    points[points.length - 1] = {
+      ...points[points.length - 1],
+      ...latest,
+      timestamp: anchor.toISOString(),
+    };
+  }
+
+  return points;
 };
 
 export const buildMockLatest = (): TelemetryPoint => {
-  const now = new Date();
+  return buildSyntheticTelemetryPoint(new Date());
+};
+
+const buildSyntheticTelemetryPoint = (timestamp: Date): TelemetryPoint => {
+  const minuteCursor = timestamp.getTime() / 60_000;
+  const hourOfDay = timestamp.getHours() + timestamp.getMinutes() / 60 + timestamp.getSeconds() / 3600;
+
+  const windSlow = wave(minuteCursor, 180, 0.14);
+  const windMid = wave(minuteCursor, 58, -0.19);
+  const windFast = wave(minuteCursor, 13, 0.31);
+  const gust = Math.max(0, wave(minuteCursor, 6.5, -0.07));
+  const demandSlow = wave(minuteCursor, 145, 0.23);
+  const demandFast = wave(minuteCursor, 37, -0.11);
+  const batterySlow = wave(minuteCursor, 720, 0.18);
+
+  const eveningPeak =
+    (hourOfDay >= 18 && hourOfDay <= 23 ? 1 : 0) * 220 +
+    (hourOfDay >= 0 && hourOfDay < 5 ? -130 : 0);
+
+  const windSpeedMs = clamp(6.1 + windSlow * 2.7 + windMid * 1.4 + windFast * 0.6 + gust * 1.25, 0.8, 15.5);
+  const windDirectionDeg = wrapAngle(214 + windSlow * 62 + windMid * 24 + windFast * 8);
+
+  const windRatio = clamp(
+    (windSpeedMs - WIND_CUT_IN_MPS) / Math.max(WIND_RATED_MPS - WIND_CUT_IN_MPS, 0.1),
+    0,
+    1.18,
+  );
+
+  const rotorRpm =
+    windSpeedMs < WIND_CUT_IN_MPS
+      ? clamp((windSpeedMs / WIND_CUT_IN_MPS) * 54 + gust * 8, 0, 85)
+      : clamp(96 + Math.pow(windRatio, 1.15) * 558 + gust * 42 + windMid * 8, 0, MAX_ROTOR_RPM);
+
+  const generationEfficiency = clamp(0.9 - Math.max(0, windFast) * 0.05, 0.76, 0.92);
+  const generatedPowerW =
+    windSpeedMs < WIND_CUT_IN_MPS
+      ? 0
+      : clamp(70 + Math.pow(windRatio, 1.52) * MAX_GENERATION_W * generationEfficiency + gust * 55, 0, MAX_GENERATION_W);
+
+  const loadPowerW = clamp(560 + demandSlow * 145 + demandFast * 58 + eveningPeak, 180, 2100);
+  const dcRequiredW = loadPowerW / INVERTER_EFFICIENCY;
+  const batteryPowerW = clamp(dcRequiredW - generatedPowerW, -1100, 1400);
+
+  const batteryPct = clamp(
+    56 + batterySlow * 24 - Math.max(batteryPowerW, 0) / 55 + Math.max(-batteryPowerW, 0) / 95 + demandFast * 3,
+    10,
+    97,
+  );
+
+  const outputVoltageAcV = clamp(
+    229.5 - loadPowerW / 900 * 2.4 - (batteryPct < 20 ? 4.5 : 0) + wave(minuteCursor, 28, 0.41) * 1.8,
+    205,
+    233,
+  );
+  const outputCurrentAcA = clamp(loadPowerW / Math.max(outputVoltageAcV, 1), 0, 11);
+
+  const genVoltageV = windSpeedMs < 1
+    ? 0
+    : clamp(24 + windSpeedMs * 2.25 + gust * 1.1 + windMid * 0.5, 8, 58);
+  const genCurrentA = generatedPowerW > 0 ? clamp(generatedPowerW / Math.max(genVoltageV, 1), 0, 36) : 0;
+
+  const vibrationRms = clamp(
+    0.55 + rotorRpm * 0.0053 + gust * 0.45 + Math.max(0, generatedPowerW - 1100) / 500 + Math.max(0, loadPowerW - 1200) / 900,
+    0.2,
+    8.7,
+  );
+  const vibrationSignal = clamp(vibrationRms / 10 + wave(minuteCursor, 9, 0.22) * 0.025, 0.05, 1.2);
+
+  const genTempC = clamp(
+    24 + generatedPowerW / 56 + loadPowerW / 230 + Math.max(0, batteryPowerW) / 230 + gust * 1.4,
+    24,
+    92,
+  );
+
+  const availableKwh = BATTERY_CAPACITY_KWH * (batteryPct / 100) * 0.92;
+  const estimatedAutonomyHours = loadPowerW > 40 ? clamp(availableKwh / (loadPowerW / 1000), 0, 18) : null;
+
+  const dayProgress = (hourOfDay % 24) / 24;
+  const projectedDailyKwh = 5.6 + positive(windSlow) * 3.1 + positive(windMid) * 0.9;
+  const energyTodayKwh = clamp(projectedDailyKwh * dayProgress, 0, 18);
+
+  let sourceNow: TelemetryPoint["sourceNow"] = "BOTH";
+  let sourceReason = "Wind generation covers most of the load while the battery smooths demand peaks.";
+  let mode = "balanced";
+
+  if (windSpeedMs < 3) {
+    sourceNow = "BATTERY";
+    sourceReason = "Low wind keeps the battery supporting the household load.";
+    mode = "low_wind";
+  } else if (batteryPowerW <= -90) {
+    sourceNow = "WIND";
+    sourceReason = "Wind generation is covering the load and recharging the battery.";
+    mode = windSpeedMs > 10.5 ? "strong_wind" : "balanced";
+  } else if (loadPowerW > 1350) {
+    sourceNow = "BOTH";
+    sourceReason = "Household demand is high, so wind and battery are sharing the supply.";
+    mode = "high_load";
+  } else if (hourOfDay < 6 && loadPowerW < 450) {
+    mode = "night_low_load";
+  } else if (batteryPct < 24 && batteryPowerW > 120) {
+    mode = "recovery";
+  }
+
   return {
-    timestamp: now.toISOString(),
-    ...mockScenario,
+    timestamp: timestamp.toISOString(),
+    windSpeedMs: round(windSpeedMs, 2),
+    windDirectionDeg: round(windDirectionDeg, 0),
+    genVoltageV: round(genVoltageV, 2),
+    genCurrentA: round(genCurrentA, 2),
+    outputVoltageAcV: round(outputVoltageAcV, 1),
+    outputCurrentAcA: round(outputCurrentAcA, 2),
+    vibrationRms: round(vibrationRms, 2),
+    vibrationSignal: round(vibrationSignal, 3),
+    genTempC: round(genTempC, 2),
+    rotorRpm: round(rotorRpm, 0),
+    batteryPct: round(batteryPct, 0),
+    estimatedAutonomyHours: estimatedAutonomyHours === null ? null : round(estimatedAutonomyHours, 1),
+    loadPowerW: round(loadPowerW, 0),
+    powerW: round(batteryPowerW, 0),
+    energyTodayKwh: round(energyTodayKwh, 2),
+    sourceNow,
+    sourceReason,
+    mode,
   };
 };
 
@@ -179,7 +257,7 @@ export const buildMockMaintenance = (
       priority: "critical",
       status: "new",
       component: "Inverter and rotor support",
-      sourceRule: "thermal-threshold-crossed",
+      sourceRule: "temp-above-threshold",
       createdAt: new Date(now - 20 * 60_000).toISOString(),
       dueDate: new Date(now + 4 * 60 * 60_000).toISOString(),
       recommendedAction: translateDashboard(language, "maintenance.item.corrective.generator.action"),

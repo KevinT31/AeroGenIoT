@@ -25,3 +25,7 @@ Thumbs.db
 
 # Local runtimes
 tools/.node-red-runtime/
+
+# Local telemetry exports
+pc_simulated_hybrid_telemetry_log.csv
+simulated_hybrid_telemetry_log.csv

@@ -9,7 +9,7 @@ Se reviso la coherencia entre:
 - app movil
 - dashboard
 - backend
-- simulador MQTT `iotda_test (1).py`
+- simulador MQTT `iotda_motorbase.py`
 
 La regla usada fue:
 
@@ -19,7 +19,7 @@ La regla usada fue:
 
 ## Variables oficiales
 
-| Variable oficial | MQTT `iotda_test (1).py` | Backend | App | Dashboard | Estado | Nota |
+| Variable oficial | MQTT `iotda_motorbase.py` | Backend | App | Dashboard | Estado | Nota |
 | --- | --- | --- | --- | --- | --- | --- |
 | `battery_soc_pct` | si | si | si | si | conforme | base para reserva y bateria critica derivada |
 | `battery_voltage_dc_v` | si | si | si | si | conforme | en UI interna se muestra como `genVoltageV` por compatibilidad |
@@ -129,17 +129,17 @@ El app y el dashboard consumen las variables reales o derivados validos de esas 
 
 La opcion mas limpia es la `1`:
 
-- dejar `iotda_test (1).py` como archivo canonico
+- dejar `iotda_motorbase.py` como archivo canonico
 - eliminar `iotda_test_hybrid.py`
 
 Motivo:
 
 - evita duplicidad y futuras divergencias
-- `iotda_test (1).py` ya contiene la simulacion mas completa
+- `iotda_motorbase.py` ya contiene la simulacion mas completa
 - ya esta alineado con el contrato real
 
 ## Estado aplicado
 
-- `iotda_test (1).py` queda como simulador canonico activo
+- `iotda_motorbase.py` queda como simulador canonico activo
 - `iotda_test_hybrid.py` fue retirado del workspace
-- el simulador canonico sigue compilando correctamente con `python -m py_compile "iotda_test (1).py"`
+- el simulador canonico sigue compilando correctamente con `python -m py_compile "iotda_motorbase.py"`

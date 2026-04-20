@@ -51,6 +51,16 @@ const componentStatusLabel = (
   return translateDashboard(language, "health.status.offline");
 };
 
+const componentStateValueLabel = (
+  language: ReturnType<typeof useDashboardData>["language"],
+  status: keyof typeof statusTone,
+) => {
+  if (status === "normal") return translateDashboard(language, "overview.stable");
+  if (status === "warning") return translateDashboard(language, "overview.reserveStatus.watch");
+  if (status === "critical") return translateDashboard(language, "health.status.critical");
+  return translateDashboard(language, "health.status.offline");
+};
+
 const buildAlertVisuals = (alarms: AlarmItem[]): TwinAlertVisuals => {
   const openTypes = new Set(alarms.filter((alarm) => alarm.status === "open").map((alarm) => alarm.type));
 
@@ -284,7 +294,7 @@ export const DigitalTwin2D = ({
                 title={translateDashboard(language, "twin.tower")}
                 caption={translateDashboard(language, "twin.structuralCore")}
                 status={twin.towerStatus}
-                value={translateDashboard(language, "twin.structuralCore")}
+                value={componentStateValueLabel(language, twin.towerStatus)}
                 language={language}
               />
               <ComponentStateCard

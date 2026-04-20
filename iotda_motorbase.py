@@ -1,4 +1,4 @@
-# iotda_test.py
+# iotda_motorbase.py
 # Archivo canonico del simulador hibrido usado para Huawei IoTDA.
 # Evitar mantener una segunda copia divergente del simulador.
 
@@ -8,15 +8,27 @@ import hmac
 import json
 import math
 import random
+import socket
 import ssl
+import struct
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Event
-from typing import Dict, Iterable, Tuple
+from threading import Event, Lock, Thread
+from typing import Dict, Iterable, Optional, Tuple
 
 import paho.mqtt.client as mqtt
+
+try:
+    from rf24_py import RF24, PaLevel, DataRate
+
+    RF24_PY_AVAILABLE = True
+except ImportError:
+    RF24 = None
+    PaLevel = None
+    DataRate = None
+    RF24_PY_AVAILABLE = False
 
 
 # =========================================
@@ -50,6 +62,30 @@ RANDOM_SEED = 42
 # Variable opcional. Por defecto no se publica porque no siempre existe
 # realmente en el controlador.
 PUBLISH_BATTERY_ALERT_OVERTEMP = False
+
+# Integracion opcional con Raspberry Pi + nRF24L01.
+# Si la libreria o el hardware no estan presentes, el script sigue operando
+# con simulacion pura sin alterar el payload MQTT.
+RF_RECEIVER_ENABLED = True
+RF_CE_PIN = 25
+RF_CSN = 0
+RF_CHANNEL = 76
+RF_ADDRESS = b"00001"
+RF_PAYLOAD_LENGTH = 32
+RF_DATA_STALE_SECONDS = 4.0
+RF_IDLE_SLEEP_SECONDS = 0.02
+RF_ERROR_BACKOFF_SECONDS = 0.50
+UDP_RECEIVER_ENABLED = True
+UDP_BIND_IP = "0.0.0.0"
+UDP_BIND_PORT = 5005
+UDP_RECV_BUFFER_BYTES = 2048
+
+# Supuestos operativos aceptados para combinar telemetria real con estimaciones.
+REALTIME_USE_THERMOCOUPLE_AS_INVERTER_TEMP = True
+AC_POWER_FACTOR_ESTIMATE = 0.96
+AC_PRESENT_MIN_VOLTAGE = 40.0
+AC_PRESENT_MIN_POWER_W = 15.0
+EARTH_GRAVITY_MS2 = 9.80665
 
 
 # =========================================
@@ -166,6 +202,18 @@ CSV_FIELDNAMES = [
 
 
 # =========================================
+# PAQUETES RF ESP32 -> RASPBERRY
+# =========================================
+FMT_P1 = "<B6fB6x"
+FMT_P2 = "<B3fBB17x"
+PACKET1_SIZE = struct.calcsize(FMT_P1)
+PACKET2_SIZE = struct.calcsize(FMT_P2)
+
+if PACKET1_SIZE != RF_PAYLOAD_LENGTH or PACKET2_SIZE != RF_PAYLOAD_LENGTH:
+    raise ValueError("Los paquetes RF no coinciden con 32 bytes.")
+
+
+# =========================================
 # ESTADO GLOBAL
 # =========================================
 connected_event = Event()
@@ -225,6 +273,16 @@ def append_csv_row(csv_path: str, row: Dict[str, object], fieldnames: Iterable[s
         writer.writerow(row)
 
 
+def is_fresh_timestamp(received_at_monotonic: float, max_age_seconds: float) -> bool:
+    return received_at_monotonic > 0.0 and (time.monotonic() - received_at_monotonic) <= max_age_seconds
+
+
+def derive_house_power_from_ac(voltage_ac_v: float, current_ac_a: float) -> float:
+    apparent_power_w = max(voltage_ac_v, 0.0) * max(current_ac_a, 0.0)
+    estimated_real_power_w = apparent_power_w * AC_POWER_FACTOR_ESTIMATE
+    return clamp(estimated_real_power_w, 0.0, 4500.0)
+
+
 # =========================================
 # MQTT AUTH
 # =========================================
@@ -238,6 +296,236 @@ def build_client_id_and_password(device_id: str, device_secret: str) -> Tuple[st
         hashlib.sha256,
     ).hexdigest()
     return client_id, username, password
+
+
+# =========================================
+# RECEPTOR RF EN RASPBERRY
+# =========================================
+@dataclass
+class RealtimeSnapshot:
+    packet1_received_at: float = 0.0
+    packet2_received_at: float = 0.0
+    packet1_source: str = "SIM"
+    packet2_source: str = "SIM"
+    inverter_temp_c: float = float("nan")
+    accel_x_ms2: float = 0.0
+    accel_y_ms2: float = 0.0
+    accel_z_ms2: float = 0.0
+    output_current_ac_a: float = 0.0
+    output_voltage_ac_v: float = 0.0
+    adxl_ok: bool = False
+    blade_rpm: float = 0.0
+    wind_speed_mps: float = 0.0
+    wind_dir_deg: float = 0.0
+    as5600_ok: bool = False
+    pr3000_ok: bool = False
+    last_packet_id: int = 0
+    packets_received: int = 0
+
+
+@dataclass
+class RealtimeInputs:
+    has_measured_output: bool = False
+    measured_output_voltage_ac_v: float = 0.0
+    measured_output_current_ac_a: float = 0.0
+    measured_house_power_w: float = 0.0
+    has_measured_temp: bool = False
+    measured_inverter_temp_c: float = 0.0
+    rotor_from_rf: bool = False
+    output_from_rf: bool = False
+    rotor_source: str = "SIM"
+    output_source: str = "SIM"
+
+
+class Rf24Receiver:
+    def __init__(self) -> None:
+        self.enabled = False
+        self.rf_enabled = RF_RECEIVER_ENABLED and RF24_PY_AVAILABLE
+        self.udp_enabled = UDP_RECEIVER_ENABLED
+        self._lock = Lock()
+        self._stop_event = Event()
+        self._thread: Optional[Thread] = None
+        self._radio = None
+        self._udp_socket: Optional[socket.socket] = None
+        self._snapshot = RealtimeSnapshot()
+        self.startup_error: Optional[str] = None
+        self._last_runtime_error: Optional[str] = None
+
+    def start(self) -> None:
+        started_transport = False
+
+        if RF_RECEIVER_ENABLED and not RF24_PY_AVAILABLE:
+            print("[WARN] rf24_py no esta disponible. RF queda deshabilitado.")
+
+        if self.rf_enabled:
+            try:
+                self._configure_radio()
+                started_transport = True
+                print("[INFO] Receptor RF activo: Raspberry Pi escuchando por nRF24L01.")
+            except Exception as exc:
+                self.startup_error = str(exc)
+                self.rf_enabled = False
+                print(f"[WARN] No se pudo iniciar el receptor RF: {exc}")
+
+        if self.udp_enabled:
+            try:
+                self._configure_udp()
+                started_transport = True
+                print(
+                    f"[INFO] Receptor WiFi UDP activo: escuchando en "
+                    f"{UDP_BIND_IP}:{UDP_BIND_PORT}."
+                )
+            except Exception as exc:
+                self.udp_enabled = False
+                print(f"[WARN] No se pudo iniciar el receptor UDP: {exc}")
+
+        if not started_transport:
+            self.enabled = False
+            print("[INFO] No hay transporte real disponible. Se mantiene simulacion pura.")
+            return
+
+        self.enabled = True
+        self._thread = Thread(target=self._run, name="rf24-listener", daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread is not None and self._thread.is_alive():
+            self._thread.join(timeout=1.5)
+        if self._radio is not None:
+            try:
+                self._radio.power_down()
+            except Exception:
+                pass
+        if self._udp_socket is not None:
+            try:
+                self._udp_socket.close()
+            except Exception:
+                pass
+
+    def get_snapshot(self) -> RealtimeSnapshot:
+        with self._lock:
+            return replace(self._snapshot)
+
+    def _configure_radio(self) -> None:
+        radio = RF24(RF_CE_PIN, RF_CSN)
+        radio.begin()
+        radio.power_up()
+        radio.open_rx_pipe(1, RF_ADDRESS)
+        radio.pa_level = PaLevel.Low
+        radio.data_rate = DataRate.Kbps250
+        radio.payload_length = RF_PAYLOAD_LENGTH
+        radio.channel = RF_CHANNEL
+        radio.as_rx()
+        self._radio = radio
+
+    def _configure_udp(self) -> None:
+        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        udp_socket.bind((UDP_BIND_IP, UDP_BIND_PORT))
+        udp_socket.setblocking(False)
+        self._udp_socket = udp_socket
+
+    def _run(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                processed_packet = False
+
+                if self._radio is not None:
+                    self._radio.update()
+
+                    while True:
+                        has_data, pipe_index = self._radio.available_pipe()
+                        if not has_data:
+                            break
+
+                        payload = bytes(self._radio.read(RF_PAYLOAD_LENGTH))
+                        self._handle_payload(payload, source="RF", origin=f"pipe={pipe_index}")
+                        processed_packet = True
+                        self._radio.update()
+
+                if self._udp_socket is not None:
+                    while True:
+                        try:
+                            payload, addr = self._udp_socket.recvfrom(UDP_RECV_BUFFER_BYTES)
+                        except BlockingIOError:
+                            break
+
+                        self._handle_payload(
+                            bytes(payload),
+                            source="WIFI",
+                            origin=f"{addr[0]}:{addr[1]}",
+                        )
+                        processed_packet = True
+
+                if not processed_packet:
+                    time.sleep(RF_IDLE_SLEEP_SECONDS)
+
+            except Exception as exc:
+                message = str(exc)
+                if message != self._last_runtime_error:
+                    print(f"[WARN] Error en receptor RF: {exc}")
+                    self._last_runtime_error = message
+                time.sleep(RF_ERROR_BACKOFF_SECONDS)
+
+    def _handle_payload(self, payload: bytes, source: str, origin: str = "") -> None:
+        if len(payload) != RF_PAYLOAD_LENGTH:
+            return
+
+        packet_id = payload[0]
+        now_monotonic = time.monotonic()
+
+        try:
+            if packet_id == 1:
+                (
+                    _,
+                    temperatura,
+                    ax,
+                    ay,
+                    az,
+                    corriente,
+                    voltaje,
+                    adxl_ok_raw,
+                ) = struct.unpack(FMT_P1, payload)
+
+                with self._lock:
+                    self._snapshot.packet1_received_at = now_monotonic
+                    self._snapshot.packet1_source = source
+                    self._snapshot.inverter_temp_c = float(temperatura)
+                    self._snapshot.accel_x_ms2 = float(ax)
+                    self._snapshot.accel_y_ms2 = float(ay)
+                    self._snapshot.accel_z_ms2 = float(az)
+                    self._snapshot.output_current_ac_a = max(float(corriente), 0.0)
+                    self._snapshot.output_voltage_ac_v = max(float(voltaje), 0.0)
+                    self._snapshot.adxl_ok = bool(adxl_ok_raw)
+                    self._snapshot.last_packet_id = 1
+                    self._snapshot.packets_received += 1
+                return
+
+            if packet_id == 2:
+                (
+                    _,
+                    rpm,
+                    velocidad_aire,
+                    angulo,
+                    as5600_ok_raw,
+                    pr3000_ok_raw,
+                ) = struct.unpack(FMT_P2, payload)
+
+                with self._lock:
+                    self._snapshot.packet2_received_at = now_monotonic
+                    self._snapshot.packet2_source = source
+                    self._snapshot.blade_rpm = max(float(rpm), 0.0)
+                    self._snapshot.wind_speed_mps = max(float(velocidad_aire), 0.0)
+                    self._snapshot.wind_dir_deg = wrap_angle_deg(float(angulo))
+                    self._snapshot.as5600_ok = bool(as5600_ok_raw)
+                    self._snapshot.pr3000_ok = bool(pr3000_ok_raw)
+                    self._snapshot.last_packet_id = 2
+                    self._snapshot.packets_received += 1
+                return
+
+        except struct.error:
+            return
 
 
 # =========================================
@@ -433,6 +721,141 @@ def maybe_switch_mode(state: SimulatorState) -> None:
     state.mode = choose_next_mode(state.mode)
     state.mode_steps_remaining = choose_mode_duration(state.mode)
     assign_mode_targets(state)
+
+
+def estimate_motor_vibration_from_accelerometer(
+    accel_x_ms2: float,
+    accel_y_ms2: float,
+    accel_z_ms2: float,
+    blade_rpm: float,
+) -> float:
+    accel_magnitude_ms2 = math.sqrt(
+        accel_x_ms2 * accel_x_ms2
+        + accel_y_ms2 * accel_y_ms2
+        + accel_z_ms2 * accel_z_ms2
+    )
+    dynamic_component_ms2 = abs(accel_magnitude_ms2 - EARTH_GRAVITY_MS2)
+    rpm_component = clamp(blade_rpm / max(MAX_BLADE_RPM, 1.0), 0.0, 1.0)
+    vibration_target = 0.55 + 0.72 * dynamic_component_ms2 + 1.25 * rpm_component
+    return clamp(vibration_target, 0.35, 10.0)
+
+
+def update_generation_from_observed_rotor(state: SimulatorState) -> None:
+    rpm_excess_ratio = clamp(
+        (state.blade_rpm - RATED_BLADE_RPM) / max(MAX_BLADE_RPM - RATED_BLADE_RPM, 1.0),
+        0.0,
+        1.25,
+    )
+    wind_stress_ratio = clamp((state.wind_speed_mps - 8.0) / 5.0, 0.0, 1.25)
+    stress_target = clamp(
+        0.10 + 0.42 * rpm_excess_ratio + 0.24 * wind_stress_ratio + 0.10 * state.gust_factor,
+        0.05,
+        1.0,
+    )
+    state.mechanical_stress = smooth_step(state.mechanical_stress, stress_target, 0.32)
+
+    wind_ratio = clamp(
+        (state.wind_speed_mps - WIND_CUT_IN_MPS) / max(WIND_RATED_MPS - WIND_CUT_IN_MPS, 0.1),
+        0.0,
+        1.18,
+    )
+    rpm_ratio = clamp(
+        (state.blade_rpm - 60.0) / max(RATED_BLADE_RPM - 60.0, 1.0),
+        0.0,
+        1.18,
+    )
+    observed_ratio = clamp(0.55 * rpm_ratio + 0.45 * wind_ratio, 0.0, 1.18)
+
+    if state.blade_rpm < 60.0 or state.wind_speed_mps < 0.6:
+        generation_target_w = 0.0
+    else:
+        aerodynamic_efficiency = clamp(0.94 - 0.18 * state.mechanical_stress, 0.55, 0.96)
+        generation_target_w = (
+            MAX_WIND_GENERATION_W
+            * math.pow(observed_ratio, 1.40)
+            * aerodynamic_efficiency
+        )
+
+    state.internal_generation_w = smooth_step(
+        state.internal_generation_w,
+        clamp(generation_target_w, 0.0, MAX_WIND_GENERATION_W),
+        0.38,
+    )
+
+
+def apply_realtime_snapshot_to_state(
+    state: SimulatorState,
+    snapshot: Optional[RealtimeSnapshot],
+) -> RealtimeInputs:
+    realtime = RealtimeInputs()
+    if snapshot is None:
+        return realtime
+
+    packet2_fresh = is_fresh_timestamp(snapshot.packet2_received_at, RF_DATA_STALE_SECONDS)
+    packet1_fresh = is_fresh_timestamp(snapshot.packet1_received_at, RF_DATA_STALE_SECONDS)
+
+    if packet2_fresh:
+        rotor_updated = False
+
+        if math.isfinite(snapshot.blade_rpm):
+            state.blade_rpm = clamp(snapshot.blade_rpm, 0.0, MAX_BLADE_RPM)
+            rotor_updated = True
+
+        if snapshot.pr3000_ok and math.isfinite(snapshot.wind_speed_mps):
+            state.wind_speed_mps = clamp(snapshot.wind_speed_mps, 0.0, 16.0)
+            state.wind_speed_target_mps = state.wind_speed_mps
+            rotor_updated = True
+
+        if snapshot.as5600_ok and math.isfinite(snapshot.wind_dir_deg):
+            wrapped_dir_deg = wrap_angle_deg(snapshot.wind_dir_deg)
+            state.wind_dir_deg = wrapped_dir_deg
+            state.wind_dir_target_deg = wrapped_dir_deg
+            rotor_updated = True
+
+        if rotor_updated:
+            update_generation_from_observed_rotor(state)
+            realtime.rotor_from_rf = True
+            realtime.rotor_source = snapshot.packet2_source
+
+    if packet1_fresh:
+        measured_voltage_ac_v = 0.0
+        measured_current_ac_a = 0.0
+
+        if math.isfinite(snapshot.output_voltage_ac_v):
+            measured_voltage_ac_v = clamp(snapshot.output_voltage_ac_v, 0.0, 280.0)
+        if math.isfinite(snapshot.output_current_ac_a):
+            measured_current_ac_a = clamp(snapshot.output_current_ac_a, 0.0, 25.0)
+
+        measured_house_power_w = derive_house_power_from_ac(
+            measured_voltage_ac_v,
+            measured_current_ac_a,
+        )
+
+        realtime.has_measured_output = True
+        realtime.measured_output_voltage_ac_v = measured_voltage_ac_v
+        realtime.measured_output_current_ac_a = measured_current_ac_a
+        realtime.measured_house_power_w = measured_house_power_w
+        realtime.output_from_rf = True
+        realtime.output_source = snapshot.packet1_source
+
+        state.house_demand_w = measured_house_power_w
+        state.house_demand_target_w = measured_house_power_w
+
+        if REALTIME_USE_THERMOCOUPLE_AS_INVERTER_TEMP and math.isfinite(snapshot.inverter_temp_c):
+            realtime.has_measured_temp = True
+            realtime.measured_inverter_temp_c = clamp(snapshot.inverter_temp_c, 0.0, 120.0)
+            state.inverter_temp_c = realtime.measured_inverter_temp_c
+
+        if snapshot.adxl_ok:
+            realtime_vibration = estimate_motor_vibration_from_accelerometer(
+                snapshot.accel_x_ms2,
+                snapshot.accel_y_ms2,
+                snapshot.accel_z_ms2,
+                state.blade_rpm,
+            )
+            state.motor_vibration = smooth_step(state.motor_vibration, realtime_vibration, 0.72)
+
+    return realtime
 
 
 # =========================================
@@ -649,13 +1072,39 @@ def calculate_inverter_and_house_output(
     supply_cut: bool,
     inverter_fault_active: bool,
     dt_hours: float,
-) -> None:
-    if supply_cut or inverter_fault_active:
+    realtime_inputs: Optional[RealtimeInputs] = None,
+) -> bool:
+    effective_supply_cut = supply_cut or inverter_fault_active
+
+    if realtime_inputs is not None and realtime_inputs.has_measured_output:
+        voltage_target_v = clamp(realtime_inputs.measured_output_voltage_ac_v, 0.0, 280.0)
+        current_target_a = clamp(realtime_inputs.measured_output_current_ac_a, 0.0, 25.0)
+        delivered_power_w = clamp(realtime_inputs.measured_house_power_w, 0.0, 4500.0)
+        effective_supply_cut = voltage_target_v < AC_PRESENT_MIN_VOLTAGE
+
+        if effective_supply_cut:
+            voltage_target_v = 0.0
+            current_target_a = 0.0
+            delivered_power_w = 0.0
+
+        state.inverter_output_voltage_ac_v = voltage_target_v
+        state.inverter_output_current_ac_a = current_target_a
+    elif supply_cut or inverter_fault_active:
         voltage_target_v = 0.0
         current_target_a = 0.0
         delivered_power_w = 0.0
         voltage_alpha = 0.62
         current_alpha = 0.72
+        state.inverter_output_voltage_ac_v = smooth_step(
+            state.inverter_output_voltage_ac_v,
+            voltage_target_v,
+            voltage_alpha,
+        )
+        state.inverter_output_current_ac_a = smooth_step(
+            state.inverter_output_current_ac_a,
+            current_target_a,
+            current_alpha,
+        )
     else:
         overload_penalty = max(state.house_demand_w - INVERTER_RATED_POWER_W, 0.0) / 600.0
         voltage_target_v = (
@@ -669,31 +1118,37 @@ def calculate_inverter_and_house_output(
         voltage_alpha = 0.28
         current_alpha = 0.32
 
-    state.inverter_output_voltage_ac_v = smooth_step(
-        state.inverter_output_voltage_ac_v,
-        voltage_target_v,
-        voltage_alpha,
-    )
-    state.inverter_output_current_ac_a = smooth_step(
-        state.inverter_output_current_ac_a,
-        current_target_a,
-        current_alpha,
-    )
+        state.inverter_output_voltage_ac_v = smooth_step(
+            state.inverter_output_voltage_ac_v,
+            voltage_target_v,
+            voltage_alpha,
+        )
+        state.inverter_output_current_ac_a = smooth_step(
+            state.inverter_output_current_ac_a,
+            current_target_a,
+            current_alpha,
+        )
+
     state.house_power_consumption_w = delivered_power_w
     state.energy_delivered_wh += delivered_power_w * dt_hours
 
     load_ratio = delivered_power_w / max(INVERTER_RATED_POWER_W, 1.0)
-    temp_target_c = (
-        state.ambient_temp_c
-        + 11.0
-        + 34.0 * load_ratio
-        + 5.5 * max((state.house_demand_w - INVERTER_RATED_POWER_W) / 600.0, 0.0)
-        + 3.0 * state.mechanical_stress
-        + (8.0 if inverter_fault_active else 0.0)
-        + random.uniform(-0.30, 0.30)
-    )
-    state.inverter_temp_c = smooth_step(state.inverter_temp_c, temp_target_c, 0.18)
-    state.inverter_temp_c = clamp(state.inverter_temp_c, 22.0, 92.0)
+    if realtime_inputs is not None and realtime_inputs.has_measured_temp:
+        state.inverter_temp_c = clamp(realtime_inputs.measured_inverter_temp_c, 0.0, 120.0)
+    else:
+        temp_target_c = (
+            state.ambient_temp_c
+            + 11.0
+            + 34.0 * load_ratio
+            + 5.5 * max((state.house_demand_w - INVERTER_RATED_POWER_W) / 600.0, 0.0)
+            + 3.0 * state.mechanical_stress
+            + (8.0 if inverter_fault_active else 0.0)
+            + random.uniform(-0.30, 0.30)
+        )
+        state.inverter_temp_c = smooth_step(state.inverter_temp_c, temp_target_c, 0.18)
+        state.inverter_temp_c = clamp(state.inverter_temp_c, 22.0, 92.0)
+
+    return effective_supply_cut
 
 
 # =========================================
@@ -844,7 +1299,10 @@ def build_csv_row(state: SimulatorState, event_time_utc: str) -> Dict[str, objec
 # =========================================
 # PASO COMPLETO DEL SIMULADOR
 # =========================================
-def simulator_step(state: SimulatorState) -> Dict[str, object]:
+def simulator_step(
+    state: SimulatorState,
+    rf_receiver: Optional[Rf24Receiver] = None,
+) -> Dict[str, object]:
     dt_hours = PUBLISH_INTERVAL_SECONDS / 3600.0
 
     maybe_switch_mode(state)
@@ -852,6 +1310,9 @@ def simulator_step(state: SimulatorState) -> Dict[str, object]:
 
     state.ambient_temp_c = smooth_step(state.ambient_temp_c, state.ambient_temp_target_c, 0.08)
     update_wind_and_aerogenerator(state)
+
+    realtime_snapshot = rf_receiver.get_snapshot() if rf_receiver is not None else None
+    realtime_inputs = apply_realtime_snapshot_to_state(state, realtime_snapshot)
 
     inverter_fault_active = advance_inverter_fault_state(state)
 
@@ -864,23 +1325,28 @@ def simulator_step(state: SimulatorState) -> Dict[str, object]:
     supply_cut = bool(controller_result["supply_cut"])
     delivered_house_power_w = float(controller_result["delivered_house_power_w"])
 
-    calculate_inverter_and_house_output(
+    effective_supply_cut = calculate_inverter_and_house_output(
         state=state,
         delivered_house_power_w=delivered_house_power_w,
         supply_cut=supply_cut,
         inverter_fault_active=inverter_fault_active,
         dt_hours=dt_hours,
+        realtime_inputs=realtime_inputs,
     )
 
     update_alarm_state(
         state=state,
         inverter_fault_active=inverter_fault_active,
-        supply_cut=supply_cut,
+        supply_cut=effective_supply_cut,
     )
 
     event_time_utc = utc_now_iso()
     payload = build_mqtt_payload(state)
     row = build_csv_row(state, event_time_utc)
+    realtime_sources = {
+        "packet1": realtime_inputs.output_source if realtime_inputs.has_measured_output else "SIM",
+        "packet2": realtime_inputs.rotor_source if realtime_inputs.rotor_from_rf else "SIM",
+    }
 
     state.tick += 1
 
@@ -888,6 +1354,7 @@ def simulator_step(state: SimulatorState) -> Dict[str, object]:
         "event_time_utc": event_time_utc,
         "payload": payload,
         "row": row,
+        "realtime_sources": realtime_sources,
     }
 
 
@@ -950,6 +1417,8 @@ def main():
 
     client = create_mqtt_client()
     state = build_initial_state()
+    rf_receiver = Rf24Receiver()
+    rf_receiver.start()
 
     if LOG_TO_CSV:
         ensure_csv_header(CSV_PATH, CSV_FIELDNAMES)
@@ -974,9 +1443,10 @@ def main():
 
         while not stop_event.is_set():
             if connected_event.is_set():
-                generated = simulator_step(state)
+                generated = simulator_step(state, rf_receiver=rf_receiver)
                 payload = generated["payload"]
                 row = generated["row"]
+                realtime_sources = generated["realtime_sources"]
                 payload_str = json.dumps(payload, ensure_ascii=False)
 
                 result = client.publish(TOPIC_REPORT, payload_str, qos=QOS)
@@ -990,6 +1460,11 @@ def main():
                 print("[PUBLISH]")
                 print("UTC:", generated["event_time_utc"])
                 print("MODE:", row["mode"])
+                print(
+                    "INPUT SOURCES:",
+                    f"P1={realtime_sources['packet1']}",
+                    f"P2={realtime_sources['packet2']}",
+                )
                 print("WIND:", row["wind_speed_mps"], "m/s")
                 print("DIR:", row["wind_dir_deg"], "deg")
                 print("RPM:", row["blade_rpm"])
@@ -1035,6 +1510,10 @@ def main():
         print(f"[ERROR] Excepcion no controlada: {exc}")
     finally:
         stop_event.set()
+        try:
+            rf_receiver.stop()
+        except Exception:
+            pass
         try:
             client.loop_stop()
             client.disconnect()

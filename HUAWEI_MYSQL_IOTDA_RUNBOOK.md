@@ -213,7 +213,7 @@ Checklist:
 
 1. Verifica que la instancia IoTDA y el `device_id` de la Raspberry sean los mismos que usaras en backend, dashboard y movil.
 2. Verifica que el product model tenga `service_id = Telemetry`.
-3. Verifica que las propiedades del product model se llamen exactamente como el nuevo `iotda_test (1).py` publica.
+3. Verifica que las propiedades del product model se llamen exactamente como el nuevo `iotda_motorbase.py` publica.
 4. Verifica que el dispositivo tenga `device secret` correcto y que la Raspberry use ese secreto.
 5. Verifica que el endpoint MQTT/TLS de IoTDA corresponda a tu region e instancia.
 6. Verifica que IoTDA siga insertando en la tabla cruda `telemetry`.
@@ -222,7 +222,7 @@ Checklist:
 9. Verifica que el backend publico responda por HTTPS.
 10. Verifica que dashboard y movil apunten al mismo dominio base del backend.
 
-## 11. Propiedades que debe publicar `iotda_test (1).py`
+## 11. Propiedades que debe publicar `iotda_motorbase.py`
 
 - `battery_soc_pct`
 - `battery_voltage_dc_v`

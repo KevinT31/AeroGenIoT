@@ -3,6 +3,7 @@ import {
   DashboardLanguage,
   translateDashboard,
 } from "@/i18n/translations";
+import { ENV, hasConfiguredApi } from "@/config/env";
 import { buildMockMaintenance } from "./mockData";
 
 const plusHours = (hours: number) => new Date(Date.now() + hours * 60 * 60_000).toISOString();
@@ -16,6 +17,10 @@ export const maintenanceService = {
     ai: AiOperationalSnapshot | null,
     language: DashboardLanguage = "en",
   ): MaintenanceItem[] {
+    if (ENV.useMockData || !hasConfiguredApi) {
+      return buildMockMaintenance(language);
+    }
+
     if (!latest) return buildMockMaintenance(language);
 
     const items: MaintenanceItem[] = [];
