@@ -1,0 +1,11 @@
+Placeholder file.
+
+Replace this text file with the final competition slide deck before creating the regional submission ZIP.
+
+Recommended final filename:
+
+Template2_Aurora_Noctua_Regional.pptx
+
+Recommended final ZIP location:
+
+slides/Template2_Aurora_Noctua_Regional.pptx

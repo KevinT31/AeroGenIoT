@@ -1,0 +1,14 @@
+Placeholder file.
+
+Replace this text file with the actual repository screenshot before creating the final regional submission ZIP.
+
+Recommended final filename:
+
+open-source-repository-screenshot.png
+
+Recommended capture:
+
+- repository home page
+- repository URL visible
+- file tree visible
+- latest branch or commit information visible

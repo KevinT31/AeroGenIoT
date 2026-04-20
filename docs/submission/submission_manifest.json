@@ -1,0 +1,130 @@
+{
+  "project": {
+    "name": "Aurora Noctua",
+    "repositoryUrl": "https://github.com/KevinT31/AeroGenIoT",
+    "publicDomain": "https://auroranoctua2026.lat"
+  },
+  "submissionDocs": [
+    "docs/submission/01_PROJECT_OVERVIEW.md",
+    "docs/submission/02_SYSTEM_ARCHITECTURE.md",
+    "docs/submission/03_REPRODUCIBILITY_GUIDE.md",
+    "docs/submission/04_HUAWEI_CLOUD_DEPLOYMENT.md",
+    "docs/submission/05_MODEL_IMPLEMENTATION_TRAINING_AND_INFERENCE.md",
+    "docs/submission/06_DATASETS_AND_ARTIFACTS.md",
+    "docs/submission/07_OPEN_SOURCE_EVIDENCE.md",
+    "docs/submission/08_SUBMISSION_CHECKLIST.md",
+    "docs/submission/09_MISSING_ITEMS_AND_HOW_TO_GENERATE_THEM.md"
+  ],
+  "presentArtifacts": [
+    {
+      "name": "backend_source",
+      "path": "app/backend",
+      "type": "source_code",
+      "includeInZip": true
+    },
+    {
+      "name": "dashboard_source",
+      "path": "app/dashboard",
+      "type": "source_code",
+      "includeInZip": true
+    },
+    {
+      "name": "mobile_source",
+      "path": "app/mobile",
+      "type": "source_code",
+      "includeInZip": true
+    },
+    {
+      "name": "iotda_motorbase",
+      "path": "iotda_motorbase.py",
+      "type": "edge_script",
+      "includeInZip": true
+    },
+    {
+      "name": "iotda_pc_profile",
+      "path": "iotdaPC.py",
+      "type": "edge_script",
+      "includeInZip": true
+    },
+    {
+      "name": "iotda_raspberry_profile",
+      "path": "iotdaRasberry.py",
+      "type": "edge_script",
+      "includeInZip": true
+    },
+    {
+      "name": "node_ingest_simulator",
+      "path": "tools/simulate-ae01.mjs",
+      "type": "utility_script",
+      "includeInZip": true
+    },
+    {
+      "name": "node_red_demo_flow",
+      "path": "tools/node-red-ae01-flow.json",
+      "type": "demo_flow",
+      "includeInZip": true
+    },
+    {
+      "name": "hybrid_telemetry_csv",
+      "path": "pc_hybrid_telemetry_log.csv",
+      "type": "dataset_sample",
+      "includeInZip": true
+    },
+    {
+      "name": "simulated_telemetry_csv",
+      "path": "pc_simulated_hybrid_telemetry_log.csv",
+      "type": "dataset_sample",
+      "includeInZip": true
+    },
+    {
+      "name": "backend_openapi",
+      "path": "app/backend/openapi/openapi.v1.yaml",
+      "type": "api_spec",
+      "includeInZip": true
+    }
+  ],
+  "missingArtifacts": [
+    {
+      "name": "regional_slide_deck",
+      "expectedPath": "slides/Template2_Aurora_Noctua_Regional.pptx",
+      "type": "slides",
+      "requiredForSubmission": true
+    },
+    {
+      "name": "open_source_screenshot",
+      "expectedPath": "docs/submission/assets/open-source-repository-screenshot.png",
+      "type": "evidence_image",
+      "requiredForSubmission": true
+    },
+    {
+      "name": "training_source_export",
+      "expectedPath": "artifacts/modelarts/training/",
+      "type": "training_code",
+      "requiredForSubmission": true
+    },
+    {
+      "name": "model_weights",
+      "expectedPath": "artifacts/model_weights/",
+      "type": "model_artifact",
+      "requiredForSubmission": true
+    },
+    {
+      "name": "training_logs",
+      "expectedPath": "artifacts/logs/training/",
+      "type": "logs",
+      "requiredForSubmission": true
+    },
+    {
+      "name": "inference_logs",
+      "expectedPath": "artifacts/logs/inference/",
+      "type": "logs",
+      "requiredForSubmission": true
+    },
+    {
+      "name": "sanitized_mysql_dataset_exports",
+      "expectedPath": "artifacts/datasets/",
+      "type": "dataset_sample",
+      "requiredForSubmission": true
+    }
+  ]
+}
