@@ -1,10 +1,9 @@
 # iotda_motorbase.py
-# Archivo canonico del simulador hibrido usado para Huawei IoTDA.
-# Evitar mantener una segunda copia divergente del simulador.
 
 import csv
 import hashlib
 import hmac
+import importlib
 import json
 import math
 import random
@@ -21,7 +20,10 @@ from typing import Dict, Iterable, Optional, Tuple
 import paho.mqtt.client as mqtt
 
 try:
-    from rf24_py import RF24, PaLevel, DataRate
+    rf24_module = importlib.import_module("rf24_py")
+    RF24 = rf24_module.RF24
+    PaLevel = rf24_module.PaLevel
+    DataRate = rf24_module.DataRate
 
     RF24_PY_AVAILABLE = True
 except ImportError:
@@ -34,15 +36,14 @@ except ImportError:
 # =========================================
 # CONFIGURACION
 # =========================================
-DEVICE_ID = "69d70e84610343162ba9b34e_gateway-telemetry-001"
-DEVICE_SECRET = "Catosimioauauau12345"
-HOST = "43a4ff957e.st1.iotda-device.sa-brazil-1.myhuaweicloud.com"
+DEVICE_ID = "69e5a0b3610343162bab23cd_gateway-001"
+DEVICE_SECRET = "AuroraGw001Telem2026"
+HOST = "f31b59956d.st1.iotda-device.sa-brazil-1.myhuaweicloud.com"
 PORT = 8883
 
 SERVICE_ID = "Telemetry"
 PUBLISH_INTERVAL_SECONDS = 10
 QOS = 1
-
 TOPIC_REPORT = f"$oc/devices/{DEVICE_ID}/sys/properties/report"
 
 # Publicacion / registro local
