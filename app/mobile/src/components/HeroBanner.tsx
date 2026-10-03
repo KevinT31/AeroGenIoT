@@ -16,7 +16,7 @@ export const HeroBanner = ({ icon, title, subtitle, colors, children }: HeroBann
   <LinearGradient colors={colors} style={styles.hero}>
     <View style={styles.heroHeader}>
       <View style={styles.heroIconSpacer} />
-      <Text style={styles.heroTitle}>{title}</Text>
+      <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.82}>{title}</Text>
       <View style={styles.heroIconWrap}>
         <MaterialCommunityIcons name={icon as any} size={24} color="#FFFFFF" />
       </View>
@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.title,
     fontSize: 23,
     textAlign: "center",
+    lineHeight: 28,
   },
   heroSub: {
     color: "#EAF7FF",

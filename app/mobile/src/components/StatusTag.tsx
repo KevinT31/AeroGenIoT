@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+    maxWidth: "100%",
   },
   dot: {
     width: 7,
@@ -41,5 +42,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.bodySemi,
     textAlign: "center",
+    flexShrink: 1,
   },
 });

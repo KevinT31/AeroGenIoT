@@ -5,15 +5,16 @@ import { SupportContact } from "../types/aerogen";
 const sanitizePhone = (value: string) => value.replace(/[^\d+]/g, "");
 
 export const supportService = {
-  getPrimaryContact(): SupportContact {
+  getPrimaryContact(phoneOverride?: string): SupportContact {
+    const phone = phoneOverride || ENV.supportPhone;
     return {
-      phone: sanitizePhone(ENV.supportPhone),
-      displayPhone: ENV.supportPhone,
+      phone: sanitizePhone(phone),
+      displayPhone: phone,
     };
   },
 
-  async callPrimaryContact() {
-    const contact = this.getPrimaryContact();
+  async callPrimaryContact(phoneOverride?: string) {
+    const contact = this.getPrimaryContact(phoneOverride);
     const url = `tel:${contact.phone}`;
     const canOpen = await Linking.canOpenURL(url);
 

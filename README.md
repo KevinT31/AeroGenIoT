@@ -138,15 +138,21 @@ The repository does **not** claim to include every training artifact. Complete M
 
 ## Run Locally
 
+### Full local stack on Windows
+
+From the repository root, run `powershell -ExecutionPolicy Bypass -File scripts\local-up.ps1` to start the local database, backend, dashboard and AE-01 simulator. The 3D twin is at `http://localhost:5173/twin-3d`. Use `scripts\local-status.ps1` to check services and `scripts\local-down.ps1` to stop them. See the [local runbook](docs/local-floci-runbook.md) for setup and troubleshooting.
+
+To serve the site from this PC at `https://auroranoctua2026.lat`, use `scripts\domain-up.ps1` and follow the [domain runbook](docs/domain-runbook.md).
+
 ### Backend
+
+The commands below assume a MySQL endpoint on `127.0.0.1:7001`, as supplied by the local stack.
 
 ~~~bash
 cd app/backend
 cp .env.example .env
 npm ci
-npm run prisma:generate
-npm run prisma:push
-npm run start:dev
+npm run start:local
 ~~~
 
 Local API:
@@ -178,6 +184,8 @@ cp .env.example .env
 npm ci
 npm run start
 ~~~
+
+For a physical phone on the same LAN, set `EXPO_PUBLIC_API_BASE=http://IP_DE_ESTA_PC:3000`. The release APK profile uses `https://auroranoctua2026.lat`.
 
 ## Edge / Telemetry Reproduction
 

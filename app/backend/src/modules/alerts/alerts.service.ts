@@ -220,6 +220,9 @@ export class AlertsService {
     if (!deviceId) {
       throw new BadRequestException("deviceId es requerido.");
     }
+    if (process.env.MOCK_DATA === "true") {
+      return mockAlerts().filter((alert) => !alert.deviceId || alert.deviceId === deviceId);
+    }
 
     return this.loadRecentByDevice(deviceId);
   }
@@ -335,6 +338,16 @@ export class AlertsService {
   }
 
   async ack(alertId: string) {
+    if (process.env.MOCK_DATA === "true") {
+      const alert = mockAlerts().find((item) => item.id === alertId) || mockAlerts()[0];
+      return {
+        ...alert,
+        id: alertId,
+        status: "acknowledged",
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     const alert = await this.prisma.alert.update({
       where: { id: alertId },
       data: { status: "acknowledged" },

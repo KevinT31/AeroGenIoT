@@ -24,6 +24,7 @@ import { SourcesModule } from "./modules/sources/sources.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { KpisModule } from "./modules/kpis/kpis.module";
 import { MeModule } from "./modules/me/me.module";
+import { AppEventsModule } from "./modules/app-events/app-events.module";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { AuditInterceptor } from "./modules/common/audit.interceptor";
 
@@ -54,6 +55,7 @@ import { AuditInterceptor } from "./modules/common/audit.interceptor";
     AdminModule,
     KpisModule,
     MeModule,
+    AppEventsModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
 })

@@ -1,0 +1,15 @@
+# Plantilla de configuracion del tunel con nombre (Cloudflare Tunnel).
+# scripts\domain-setup-tunnel.ps1 genera la version real en %USERPROFILE%\.cloudflared\config.yml
+# reemplazando TUNNEL_ID automaticamente.
+tunnel: TUNNEL_ID
+credentials-file: C:\Users\kevin\.cloudflared\TUNNEL_ID.json
+protocol: http2
+
+ingress:
+  - hostname: auroranoctua2026.lat
+    service: http://localhost:8080
+  - hostname: www.auroranoctua2026.lat
+    service: http://localhost:8080
+  - hostname: goaly.auroranoctua2026.lat
+    service: http://localhost:3100
+  - service: http_status:404

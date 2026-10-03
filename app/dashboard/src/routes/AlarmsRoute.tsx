@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { AlarmCard } from "@/components/alarms/AlarmCard";
 import { Panel } from "@/components/ui/Panel";
-import { SectionHeader } from "@/components/ui/SectionHeader";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { DashboardLanguage } from "@/i18n/translations";
 import { translateDashboard } from "@/i18n/translations";
@@ -42,11 +41,6 @@ export const AlarmsRoute = () => {
 
   return (
     <div className="space-y-8">
-      <SectionHeader
-        eyebrow={translateDashboard(language, "alarms.eyebrow")}
-        title={translateDashboard(language, "alarms.title")}
-      />
-
       <Panel>
         <div className="grid gap-4 lg:grid-cols-3">
           <FilterSelect label={translateDashboard(language, "alarms.severity")} value={severityFilter} onChange={(value) => setSeverityFilter(value as "all" | "critical" | "warning" | "info")} options={severityOptions} />

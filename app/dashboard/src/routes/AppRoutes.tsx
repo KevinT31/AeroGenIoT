@@ -10,6 +10,7 @@ const TelemetryRoute = lazy(() => import("./TelemetryRoute").then((module) => ({
 const AlarmsRoute = lazy(() => import("./AlarmsRoute").then((module) => ({ default: module.AlarmsRoute })));
 const MaintenanceRoute = lazy(() => import("./MaintenanceRoute").then((module) => ({ default: module.MaintenanceRoute })));
 const DeviceRoute = lazy(() => import("./DeviceRoute").then((module) => ({ default: module.DeviceRoute })));
+const Twin3DRoute = lazy(() => import("./Twin3DRoute").then((module) => ({ default: module.Twin3DRoute })));
 
 export const AppRoutes = () => (
   <DashboardDataProvider>
@@ -33,6 +34,8 @@ export const AppRoutes = () => (
           <Route path="/maintenance" element={<MaintenanceRoute />} />
           <Route path="/device" element={<DeviceRoute />} />
         </Route>
+        {/* Immersive full-bleed 3D twin lives outside the dashboard shell */}
+        <Route path="/twin-3d" element={<Twin3DRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

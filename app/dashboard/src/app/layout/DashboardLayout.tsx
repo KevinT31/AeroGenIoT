@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertTriangle,
+  Box,
   Clock3,
   Gauge,
   Radar,
@@ -23,6 +24,7 @@ import { translateDashboard } from "@/i18n/translations";
 const navigation = [
   { to: "/", key: "nav.overview", icon: Gauge },
   { to: "/digital-twin", key: "nav.digitalTwin", icon: Wind },
+  { to: "/twin-3d", key: "nav.twin3d", icon: Box },
   { to: "/telemetry", key: "nav.telemetry", icon: Activity },
   { to: "/alarms", key: "nav.alarms", icon: AlertTriangle },
   { to: "/maintenance", key: "nav.maintenance", icon: Wrench },

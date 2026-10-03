@@ -6,13 +6,13 @@
 | --- | --- | --- |
 | Template 2 presentation slides included | Missing | Placeholder documented, but slide deck is not in the repository |
 | Source code included | Present | Backend, dashboard, mobile, edge scripts, and tools are present |
-| Model implementation included | Partial | Operational AI integration is present, but training exports are not |
-| Training code included | Missing | No ModelArts training scripts or notebooks were found in the repository |
-| Inference code included | Partial | Backend operational AI integration is present; standalone inference runner is not |
-| Dataset samples included | Partial | Two telemetry CSV files are present, but sanitized production DB exports are missing |
-| Model weights included | Missing | No serialized model artifacts found |
-| Training logs included | Missing | No training log bundle found |
-| Inference logs included | Missing | No dedicated inference log bundle found |
+| Model implementation included | Present | Operational AI integration, local model inference, and trained JSON artifact are present |
+| Training code included | Partial | Local operational AI training script is present; ModelArts notebooks are still not exported |
+| Inference code included | Present | Backend operational AI service includes table-based ingestion, trained JSON model inference, and heuristic fallback |
+| Dataset samples included | Partial | Generated operational AI datasets are present; sanitized production DB exports are still missing |
+| Model weights included | Present | Lightweight JSON operational model artifact is present |
+| Training logs included | Present | `artifacts/operational-ai/logs/training-metrics.json` is present |
+| Inference logs included | Present | `artifacts/operational-ai/logs/inference-sample.json` is present |
 | Root README included | Present | Rewritten for competition evaluation |
 | Open-source screenshot included | Missing | Placeholder path created in `docs/submission/assets/` |
 | Architecture document included | Present | `02_SYSTEM_ARCHITECTURE.md` |

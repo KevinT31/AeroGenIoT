@@ -24,6 +24,7 @@ Thumbs.db
 *.log
 
 # Local runtimes
+.runtime/
 tools/.node-red-runtime/
 
 # Local telemetry exports

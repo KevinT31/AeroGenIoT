@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { HeroBanner } from "../components/HeroBanner";

@@ -44,6 +44,7 @@ export const MetricCard = ({ icon, title, value, helper, unit, tone = "sky", val
 const styles = StyleSheet.create({
   card: {
     flex: 1,
+    minWidth: 0,
     minHeight: 132,
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -65,6 +66,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     textAlign: "center",
+    flexShrink: 1,
   },
   value: {
     color: palette.text,
@@ -84,5 +86,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     textAlign: "center",
+    flexShrink: 1,
   },
 });

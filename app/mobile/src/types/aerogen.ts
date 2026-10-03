@@ -5,6 +5,35 @@ export type DataMode = "live" | "mock";
 export type AlertStatus = "open" | "acknowledged" | "resolved";
 export type AiSeverity = "info" | "warning" | "critical";
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  role?: string | null;
+}
+
+export interface AuthSession {
+  accessToken: string;
+  refreshToken: string;
+  user: AuthUser;
+}
+
+export interface DeviceSummary {
+  id: string;
+  name: string;
+  status?: string | null;
+  farmId?: string | null;
+  plotId?: string | null;
+}
+
+export interface UserProfile {
+  displayName: string;
+  phone: string;
+  location: string;
+  organization: string;
+  supportPhone: string;
+}
+
 export interface LatestReadingApi {
   id: string;
   deviceId: string;

@@ -176,13 +176,9 @@ export const OperationalAiPanel = ({ ai }: { ai: AiOperationalSnapshot | null })
       <div className="relative flex flex-col gap-5 p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-signal-info">
-              {text.eyebrow}
-            </div>
-            <h3 className="mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white">
+            <h3 className="font-display text-2xl font-semibold text-slate-950 dark:text-white">
               {text.title}
             </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{text.subtitle}</p>
           </div>
           <div className="inline-flex items-center gap-2 self-start rounded-full border border-emerald-300/60 bg-emerald-100/70 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
             <Sparkles className="h-4 w-4" />

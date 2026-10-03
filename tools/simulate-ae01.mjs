@@ -13,10 +13,14 @@ if (!process.env.API_BASE || !process.env.INGEST_API_KEY) {
 const options = parseArgs(process.argv.slice(2));
 const state = {
   windSpeedMs: options.wind,
+  windDirectionDeg: options.direction,
   genVoltageV: options.volt,
   genCurrentA: options.current,
+  outputVoltageAcV: options.outputVolt,
+  outputCurrentAcA: options.outputCurrent,
   vibrationRms: options.vibration,
   genTempC: options.temp,
+  rotorRpm: options.rpm,
   batteryPct: options.battery,
   loadPowerW: options.load,
 };
@@ -64,10 +68,14 @@ function parseArgs(argv) {
     farmId: "FARM-01",
     plotId: "PLOT-01",
     wind: 8.2,
+    direction: 140,
     volt: 48.6,
     current: 12.1,
+    outputVolt: 220,
+    outputCurrent: 1.4,
     vibration: 2.4,
     temp: 54.0,
+    rpm: 420,
     battery: 75,
     load: Number(process.env.DEFAULT_LOAD_W || 300),
     jitter: 0.8,
@@ -110,6 +118,11 @@ function parseArgs(argv) {
       case "wind":
         opts.wind = toNumber(next, opts.wind);
         break;
+      case "direction":
+      case "windDirection":
+      case "windDir":
+        opts.direction = toNumber(next, opts.direction);
+        break;
       case "volt":
       case "voltage":
         opts.volt = toNumber(next, opts.volt);
@@ -118,12 +131,25 @@ function parseArgs(argv) {
       case "amp":
         opts.current = toNumber(next, opts.current);
         break;
+      case "outputVolt":
+      case "outputVoltage":
+      case "acVoltage":
+        opts.outputVolt = toNumber(next, opts.outputVolt);
+        break;
+      case "outputCurrent":
+      case "acCurrent":
+        opts.outputCurrent = toNumber(next, opts.outputCurrent);
+        break;
       case "vibration":
         opts.vibration = toNumber(next, opts.vibration);
         break;
       case "temp":
       case "temperature":
         opts.temp = toNumber(next, opts.temp);
+        break;
+      case "rpm":
+      case "rotorRpm":
+        opts.rpm = toNumber(next, opts.rpm);
         break;
       case "battery":
         opts.battery = toNumber(next, opts.battery);
@@ -152,10 +178,14 @@ function buildPayload(options, state) {
     plotId: options.plotId,
     ts: new Date().toISOString(),
     windSpeedMs: round2(state.windSpeedMs),
+    windDirectionDeg: round2(state.windDirectionDeg),
     genVoltageV: round2(state.genVoltageV),
     genCurrentA: round2(state.genCurrentA),
+    outputVoltageAcV: round2(state.outputVoltageAcV),
+    outputCurrentAcA: round2(state.outputCurrentAcA),
     vibrationRms: round2(state.vibrationRms),
     genTempC: round2(state.genTempC),
+    rotorRpm: round2(state.rotorRpm),
     batteryPct: Math.round(clamp(state.batteryPct, 0, 100)),
     loadPowerW: round2(state.loadPowerW),
     mode: options.mode,
@@ -164,10 +194,14 @@ function buildPayload(options, state) {
 
 function evolveAuto(state, jitter) {
   state.windSpeedMs = clamp(withJitter(state.windSpeedMs, jitter), 0, 35);
+  state.windDirectionDeg = normalizeDegrees(withJitter(state.windDirectionDeg, jitter * 8));
   state.genVoltageV = clamp(withJitter(state.genVoltageV, jitter * 0.25), 0, 120);
   state.genCurrentA = clamp(withJitter(state.genCurrentA, jitter * 0.5), 0, 200);
+  state.outputVoltageAcV = clamp(withJitter(state.outputVoltageAcV, jitter * 1.8), 0, 260);
+  state.outputCurrentAcA = clamp(withJitter(state.outputCurrentAcA, jitter * 0.08), 0, 40);
   state.vibrationRms = clamp(withJitter(state.vibrationRms, jitter * 0.2), 0, 20);
   state.genTempC = clamp(withJitter(state.genTempC, jitter * 0.6), -20, 140);
+  state.rotorRpm = clamp(withJitter(state.rotorRpm, jitter * 15), 0, 900);
   state.loadPowerW = clamp(withJitter(state.loadPowerW, jitter * 6), 10, 10000);
 
   const batteryDelta = state.windSpeedMs < 3 ? -0.7 : state.windSpeedMs > 10 ? 0.25 : -0.15;
@@ -197,7 +231,8 @@ function printSample(payload, once) {
   const suffix = once ? "single-shot" : payload.mode;
   console.log(
     `[${payload.ts}] ${suffix} device=${payload.deviceId} wind=${payload.windSpeedMs}m/s ` +
-      `V=${payload.genVoltageV} I=${payload.genCurrentA} P=${powerW}W ` +
+      `dir=${payload.windDirectionDeg}deg Vdc=${payload.genVoltageV} Idc=${payload.genCurrentA} P=${powerW}W ` +
+      `Vac=${payload.outputVoltageAcV} Iac=${payload.outputCurrentAcA} rpm=${payload.rotorRpm} ` +
       `batt=${payload.batteryPct}% load=${payload.loadPowerW}W`,
   );
 }
@@ -213,6 +248,10 @@ function withJitter(value, jitter) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeDegrees(value) {
+  return ((value % 360) + 360) % 360;
 }
 
 function round2(value) {

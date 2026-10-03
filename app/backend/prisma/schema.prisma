@@ -83,6 +83,7 @@ model User {
   pushTokens    PushToken[]
   auditLogs     AuditLog[]
   reports       Report[]
+  appEvents     AppEvent[]
 }
 
 model Farm {
@@ -392,5 +393,20 @@ model AuditLog {
   ip        String?
   userAgent String?
   createdAt DateTime @default(now())
+}
+
+model AppEvent {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  event      String
+  category   String?
+  deviceId   String?
+  platform   String?
+  appVersion String?
+  payload    Json?
+  createdAt  DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
 }
 

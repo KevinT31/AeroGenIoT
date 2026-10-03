@@ -1,0 +1,33 @@
+services:
+  floci:
+    image: floci/floci:latest-compat
+    container_name: aerogeniot-floci
+    ports:
+      - "4566:4566"
+      - "7001-7099:7001-7099"
+      - "9200-9299:9200-9299"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci-data:/app/data
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_BASE_URL: http://floci:4566
+      FLOCI_STORAGE_MODE: hybrid
+      FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+      FLOCI_SERVICES_DOCKER_NETWORK: aerogeniot_floci
+      FLOCI_SERVICES_RDS_PROXY_BASE_PORT: "7001"
+      FLOCI_SERVICES_RDS_PROXY_MAX_PORT: "7099"
+      FLOCI_SERVICES_LAMBDA_RUNTIME_API_BASE_PORT: "9200"
+      FLOCI_SERVICES_LAMBDA_RUNTIME_API_MAX_PORT: "9299"
+      FLOCI_SERVICES_LAMBDA_HOT_RELOAD_ENABLED: "true"
+    networks:
+      aerogeniot_floci:
+        aliases:
+          - localhost.floci.io
+
+volumes:
+  floci-data:
+
+networks:
+  aerogeniot_floci:
+    name: aerogeniot_floci

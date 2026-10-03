@@ -1,5 +1,4 @@
 import { Panel } from "@/components/ui/Panel";
-import { SectionHeader } from "@/components/ui/SectionHeader";
 import { ENV } from "@/config/env";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { connectivityLabel, formatDateTime, formatNumber } from "@/utils/format";
@@ -17,12 +16,6 @@ export const DeviceRoute = () => {
 
   return (
     <div className="space-y-8">
-      <SectionHeader
-        eyebrow={translateDashboard(language, "device.eyebrow")}
-        title={translateDashboard(language, "device.title")}
-        description={translateDashboard(language, "device.description")}
-      />
-
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <Panel>
           <h3 className="font-display text-xl font-semibold text-slate-950 dark:text-white">

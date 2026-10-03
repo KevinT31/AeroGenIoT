@@ -1,0 +1,33 @@
+# Origen local para auroranoctua2026.lat (detras de Cloudflare Tunnel).
+# TLS lo termina Cloudflare; aqui solo HTTP en 127.0.0.1:8080.
+# Arranque: scripts\domain-up.ps1 (usa .runtime\bin\caddy.exe)
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	encode gzip zstd
+
+	# API REST del backend NestJS local
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# WebSocket de telemetria en tiempo real (socket.io)
+	handle /socket.io/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Swagger
+	handle /docs* {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Dashboard (build de produccion con VITE_API_BASE=same-origin)
+	handle {
+		root * "C:/AuroraNoctua_Local/AeroGenIoT/app/dashboard/dist-domain"
+		try_files {path} /index.html
+		file_server
+	}
+}

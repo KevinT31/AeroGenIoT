@@ -21,7 +21,7 @@ export class MeService {
     const [user, farms, crops, zones] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, email: true, name: true },
+        select: { id: true, email: true, name: true, preferences: true },
       }),
       this.prisma.farm.findMany({
         where: { ownerId: userId },
@@ -99,6 +99,7 @@ export class MeService {
 
     return {
       user: user || null,
+      preferences: user?.preferences || null,
       displayName: user?.name || null,
       activeFarmId: activeFarm?.id || null,
       activeParcelId: activePlot?.id || null,

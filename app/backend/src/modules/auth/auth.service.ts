@@ -139,7 +139,7 @@ export class AuthService {
   }
 
   private async _issueTokens(userId: string, email: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, name: true } });
     const accessToken = this.jwt.sign({ sub: userId, email, role: user?.role || "viewer" });
     const refreshToken = randomBytes(40).toString("hex");
     const expiresAt = new Date(Date.now() + REFRESH_DAYS * 24 * 60 * 60 * 1000);
@@ -148,6 +148,6 @@ export class AuthService {
       data: { userId, tokenHash: hashToken(refreshToken), expiresAt },
     });
 
-    return { accessToken, refreshToken, user: { id: userId, email } };
+    return { accessToken, refreshToken, user: { id: userId, email, name: user?.name || null, role: user?.role || "viewer" } };
   }
 }

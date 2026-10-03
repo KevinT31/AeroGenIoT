@@ -2,11 +2,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { ENV } from "../config/env";
 import { aiService } from "../services/aiService";
 import { alertsService } from "../services/alertsService";
+import { analyticsService } from "../services/analyticsService";
 import { deviceStatusService } from "../services/deviceStatusService";
 import { realtimeService } from "../services/realtimeService";
+import { sessionStorage } from "../services/sessionStorage";
 import { telemetryService } from "../services/telemetryService";
 import { AlertItem, DataMode, OperationalAiSnapshot, SyncState, TelemetryReading } from "../types/aerogen";
 import { sortAlertsByDate } from "../utils/format";
+import { useSession } from "./SessionContext";
 
 type AeroContextShape = {
   reading: TelemetryReading | null;
@@ -22,6 +25,7 @@ type AeroContextShape = {
   isRealtimeEnabled: boolean;
   lastSyncAt: Date | null;
   lastError: string | null;
+  usingCachedSnapshot: boolean;
   refresh: () => Promise<void>;
   markAlertReceived: (alertId: string) => Promise<boolean>;
 };
@@ -49,8 +53,10 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
   const [hasLoadedOnce, setHasLoadedOnce] = useState<boolean>(false);
   const [lastFetchFailed, setLastFetchFailed] = useState<boolean>(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [usingCachedSnapshot, setUsingCachedSnapshot] = useState<boolean>(false);
 
-  const deviceId = ENV.deviceId;
+  const { activeDeviceId } = useSession();
+  const deviceId = activeDeviceId || ENV.deviceId;
   const dataMode: DataMode = ENV.useMockData ? "mock" : "live";
 
   const updateLastSync = useCallback(() => {
@@ -80,10 +86,30 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
         setReading(latest);
         setAiOperational(operationalAi);
         setAlerts(sortAlertsByDate(recentAlerts).slice(0, 100));
+        setUsingCachedSnapshot(false);
+        await sessionStorage.saveSnapshot({
+          deviceId,
+          reading: latest,
+          aiOperational: operationalAi,
+          alerts: sortAlertsByDate(recentAlerts).slice(0, 100),
+        });
         updateLastSync();
       } catch (error) {
         setLastFetchFailed(true);
         setLastError(extractErrorMessage(error));
+        await analyticsService.captureError(error, { area: "snapshot", deviceId });
+        const cached = await sessionStorage.loadSnapshot<{
+          deviceId?: string;
+          reading?: TelemetryReading | null;
+          aiOperational?: OperationalAiSnapshot | null;
+          alerts?: AlertItem[];
+        } | null>(null);
+        if (cached?.deviceId === deviceId) {
+          setReading(cached.reading || null);
+          setAiOperational(cached.aiOperational || null);
+          setAlerts(sortAlertsByDate(cached.alerts || []).slice(0, 100));
+          setUsingCachedSnapshot(true);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -193,6 +219,7 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
       isRealtimeEnabled: ENV.realtimeEnabled,
       lastSyncAt,
       lastError,
+      usingCachedSnapshot,
       refresh,
       markAlertReceived,
     }),
@@ -211,6 +238,7 @@ export const AeroProvider = ({ children }: { children: React.ReactNode }) => {
       refresh,
       refreshing,
       syncState,
+      usingCachedSnapshot,
     ],
   );
 

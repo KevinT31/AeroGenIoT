@@ -12,6 +12,13 @@ const toBoolean = (raw: string | undefined, fallback: boolean) => {
 };
 
 const normalizeBase = (value: string | undefined) => String(value || "").trim().replace(/\/+$/, "");
+// "same-origin" hace que el bundle use el mismo dominio desde el que se sirve
+// (necesario cuando un reverse proxy local sirve estaticos + /api bajo un dominio publico).
+const resolveApiBase = (value: string | undefined) => {
+  const base = normalizeBase(value);
+  if (base === "same-origin") return typeof window === "undefined" ? "" : window.location.origin;
+  return base;
+};
 const normalizeLabel = (value: string | undefined, fallback: string) => {
   const label = String(value || "").trim();
   return label || fallback;
@@ -19,7 +26,7 @@ const normalizeLabel = (value: string | undefined, fallback: string) => {
 
 export const ENV = {
   appName: "Aurora Noctua",
-  apiBase: normalizeBase(import.meta.env.VITE_API_BASE),
+  apiBase: resolveApiBase(import.meta.env.VITE_API_BASE),
   deviceId: String(import.meta.env.VITE_DEVICE_ID || "AE-01"),
   deviceLabel: normalizeLabel(import.meta.env.VITE_DEVICE_LABEL, "Aurora-01"),
   farmId: String(import.meta.env.VITE_FARM_ID || ""),

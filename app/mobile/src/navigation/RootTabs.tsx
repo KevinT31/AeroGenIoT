@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -8,8 +8,10 @@ import { AlertsScreen } from "../screens/AlertsScreen";
 import { ProductionScreen } from "../screens/ProductionScreen";
 import { AiScreen } from "../screens/AiScreen";
 import { TechnicalScreen } from "../screens/TechnicalScreen";
+import { AccountScreen } from "../screens/AccountScreen";
 import { fonts, palette, radius, shadows } from "../theme";
 import { useI18n } from "../i18n/LanguageContext";
+import { analyticsService } from "../services/analyticsService";
 
 const Tabs = createBottomTabNavigator();
 
@@ -28,9 +30,23 @@ const navTheme = {
 export const RootTabs = () => {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer
+      theme={navTheme}
+      onReady={() => {
+        void analyticsService.track({ event: "app_ready", category: "session" });
+      }}
+      onStateChange={(state) => {
+        const route = state?.routes[state.index || 0];
+        const currentName = route?.name;
+        if (currentName && routeNameRef.current !== currentName) {
+          routeNameRef.current = currentName;
+          void analyticsService.track({ event: "screen_view", category: "screen", payload: { screen: currentName } });
+        }
+      }}
+    >
       <Tabs.Navigator
         initialRouteName="home"
         screenOptions={({ route }) => ({
@@ -53,7 +69,11 @@ export const RootTabs = () => {
           },
           tabBarLabelStyle: {
             fontFamily: fonts.bodySemi,
-            fontSize: 12,
+            fontSize: 10.5,
+            lineHeight: 13,
+          },
+          tabBarItemStyle: {
+            minWidth: 48,
           },
           tabBarIcon: ({ color, size }) => {
             const nameByRoute: Record<string, string> = {
@@ -62,6 +82,7 @@ export const RootTabs = () => {
               alerts: "bell-alert-outline",
               ai: "brain",
               technical: "compass-rose",
+              account: "account-circle-outline",
             };
             return <MaterialCommunityIcons name={nameByRoute[route.name] as any} size={size + 1} color={color} />;
           },
@@ -72,6 +93,7 @@ export const RootTabs = () => {
         <Tabs.Screen name="alerts" component={AlertsScreen} options={{ title: t("tab.alerts") }} />
         <Tabs.Screen name="ai" component={AiScreen} options={{ title: t("tab.ai") }} />
         <Tabs.Screen name="technical" component={TechnicalScreen} options={{ title: t("tab.technical") }} />
+        <Tabs.Screen name="account" component={AccountScreen} options={{ title: "Cuenta" }} />
       </Tabs.Navigator>
     </NavigationContainer>
   );
